@@ -20,7 +20,7 @@ public class PatientService : IPatientService
         await _persistence.Add(patient);
     }
 
-    public async Task<Patient?> GetByDniAsync(string dni)
+    public async Task<Patient?> GetByDniAsync(long dni)
     {
         return await _persistence.First<Patient>(p => p.Dni == dni);
     }

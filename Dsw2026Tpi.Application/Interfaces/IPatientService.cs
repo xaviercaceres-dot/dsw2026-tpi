@@ -7,7 +7,7 @@ namespace Dsw2026Tpi.Application.Interfaces;
 
 public interface IPatientService
 {
-    Task<Patient?> GetByDniAsync(string dni);
+    Task<Patient?> GetByDniAsync(long dni);
     Task<Patient?> GetByIdAsync(Guid id);
     Task AddAsync(Patient patient);
 }
