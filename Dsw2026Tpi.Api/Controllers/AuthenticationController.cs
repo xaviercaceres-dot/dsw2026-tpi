@@ -28,7 +28,18 @@ public class AuthenticationController : AppController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Login([FromBody] LoginAdminModel.Request request)
     {
+        //pass = SuperPassword123!
         var result = await _authenticationService.LoginAdmin(request);
+        return Ok(result);
+    }
+
+    [HttpPost("patient/login")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> LoginPatient([FromBody] LoginPatientModel.Request request)
+    {
+        //pass = 12345678
+        var result = await _authenticationService.LoginPatient(request);
         return Ok(result);
     }
 }
