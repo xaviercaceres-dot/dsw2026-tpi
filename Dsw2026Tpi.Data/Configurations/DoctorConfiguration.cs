@@ -9,5 +9,21 @@ public class DoctorConfiguration : IEntityTypeConfiguration<Doctor>
     public void Configure(EntityTypeBuilder<Doctor> builder)
     {
         builder.ToTable("Doctors");
+
+        builder.Property(d => d.Name)
+           .HasMaxLength(100) 
+           .IsRequired(); 
+
+        builder.Property(d => d.LicenseNumber)
+            .HasMaxLength(50) 
+            .IsRequired(); 
+
+        builder.Property(d => d.IsActive)
+            .IsRequired();
+
+        builder.HasOne(d => d.Speciality) 
+            .WithMany()                 
+            .HasForeignKey(d => d.SpecialityId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
