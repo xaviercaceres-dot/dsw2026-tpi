@@ -26,7 +26,13 @@ public class DoctorController : AppController
     public async Task<IActionResult> GetAll([FromQuery]int pageSize, [FromQuery]int pageIndex, [FromQuery]string? name = null)
     {
         var doctors = await _service.GetAll(pageSize, pageIndex, name);
-        return Ok(doctors);
+        return Ok(new
+        {
+            pageSize = doctors.PageSize,
+            pageIndex = doctors.PageIndex,
+            data = doctors.Data,
+            total = doctors.Total
+        });
     }
 
     [HttpGet("{id:guid}/availabilities")] 
