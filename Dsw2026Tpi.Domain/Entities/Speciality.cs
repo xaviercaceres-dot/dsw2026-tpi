@@ -1,4 +1,6 @@
-﻿namespace Dsw2026Tpi.Domain.Entities;
+﻿using System.Text.Json.Serialization;
+
+namespace Dsw2026Tpi.Domain.Entities;
 
 public class Speciality: EntityBase
 {
@@ -12,6 +14,13 @@ public class Speciality: EntityBase
     #endregion
 
     public Speciality(string name, string description, Guid? id = null) : base(id)
+    {
+        Name = name;
+        Description = description;
+    }
+
+    [JsonConstructor]
+    public Speciality(Guid id, string name, string description) : base(id)
     {
         Name = name;
         Description = description;
