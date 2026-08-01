@@ -5,7 +5,7 @@ using Dsw2026Tpi.CrossCutting.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-[Route("appointments")]
+[Route("api/appointments")]
 [Authorize]
 public class AppointmentController : AppController
 {

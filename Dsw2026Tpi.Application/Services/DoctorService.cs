@@ -24,7 +24,7 @@ public class DoctorService : IDoctorService
                                                    d.Name.Contains(name)), x => x.Name, nameof(Doctor.Speciality));
 
         return doctors.Map(d => new DoctorModel.Response(d.Id, d.Name, d.LicenseNumber,
-            new DoctorModel.SpecialityDto(d.Speciality?.Id, d.Speciality?.Name)));
+            new DoctorModel.SpecialtyDto(d.Speciality?.Id, d.Speciality?.Name)));
     }
 
 
@@ -49,7 +49,7 @@ public class DoctorService : IDoctorService
             ?? throw new EntityNotFoundException("Doctor");
 
         var speciality = await _persistence.GetById<Speciality>(request.SpecialityId)
-            ?? throw new EntityNotFoundException("Speciality");
+            ?? throw new EntityNotFoundException("Specialty");
 
         doctor.Update(request.Name, request.LicenseNumber, speciality);
         await _persistence.Update(doctor);
@@ -82,7 +82,7 @@ public class DoctorService : IDoctorService
     private static string Format(TimeSpan time) => time.ToString(@"hh\:mm");
 
     private static DoctorModel.Response ToResponse(Doctor d) =>
-        new(d.Id, d.Name, d.LicenseNumber, new DoctorModel.SpecialityDto(d.Speciality?.Id, d.Speciality?.Name));
+        new(d.Id, d.Name, d.LicenseNumber, new DoctorModel.SpecialtyDto(d.Speciality?.Id, d.Speciality?.Name));
 
     private static void ValidateRequest(DoctorModel.Request request)
     {
@@ -95,7 +95,7 @@ public class DoctorService : IDoctorService
             ex.WithDetail("licenseNumber", "El número de matrícula es obligatorio.");
 
         if (request.SpecialityId == Guid.Empty)
-            ex.WithDetail("specialityId", "La especialidad es obligatoria.");
+            ex.WithDetail("specialtyId", "La especialidad es obligatoria.");
 
         if (ex.Error.Details.Count > 0) throw ex;
     }

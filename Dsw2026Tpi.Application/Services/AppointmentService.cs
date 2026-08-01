@@ -4,6 +4,7 @@ using Dsw2026Tpi.CrossCutting.Exceptions;
 using Dsw2026Tpi.Domain.Entities;
 using Dsw2026Tpi.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -20,11 +21,14 @@ public class AppointmentService : IAppointmentService
 
     private readonly IPersistence _persistence;
     private readonly IPatientService _patientService;
+    private readonly ILogger<AppointmentService> _logger;
 
-    public AppointmentService(IPersistence persistence, IPatientService patientService)
+
+    public AppointmentService(IPersistence persistence, IPatientService patientService, ILogger<AppointmentService> logger)
     {
         _persistence = persistence;
         _patientService = patientService;
+        _logger = logger;
     }
 
     public async Task<AppointmentModel.Response> Create(AppointmentModel.CreateRequest request)
@@ -37,11 +41,10 @@ public class AppointmentService : IAppointmentService
         var patient = await _patientService.GetByDniAsync(request.Patient.Dni)
             ?? throw new EntityNotFoundException("Patient");
 
-      
-        var slot = await _persistence.GetById<AvailabilitySlot>(request.AvailabilityId, "AvailabilityRule.Doctor")
-            ?? throw new EntityNotFoundException("AvailabilitySlot");
+        var slot = await _persistence.GetById<AvailabilitySlot>(request.AvailabilityId, "AvailabilityRule", "Doctor.Speciality")
+      ?? throw new EntityNotFoundException("AvailabilitySlot");
 
-  
+
         if (slot.AvailabilityRule?.DoctorId != request.DoctorId)
             throw new ValidationException().WithDetail("availabilityId", "El turno no pertenece al médico indicado.");
 
@@ -49,7 +52,10 @@ public class AppointmentService : IAppointmentService
             throw new BusinessRuleException("No se pueden reservar turnos en fechas u horarios pasados.", "APPOINTMENT_PAST_DATE");
 
         if (slot.Status != "AVAILABLE")
+        {
+            _logger.LogWarning("Intento de reserva sobre slot no disponible {SlotId} (doctor {DoctorId})", slot.Id, slot.DoctorId);
             throw new ConflictException("APPOINTMENT_CONFLICT", "Slot already booked");
+        }
 
         slot.Book();
         try
@@ -58,14 +64,16 @@ public class AppointmentService : IAppointmentService
         }
         catch (DbUpdateConcurrencyException)
         {
+            _logger.LogWarning("Conflicto de concurrencia al reservar el slot {SlotId}", slot.Id);
             throw new ConflictException("APPOINTMENT_CONFLICT", "Slot already booked");
         }
 
         var appointment = new Appointment(slot.Id, patient.Id, request.Reason);
         await _persistence.Add(appointment);
+        _logger.LogInformation("Turno {AppointmentId} reservado para paciente {Dni} con doctor {DoctorId}",
+            appointment.Id, request.Patient.Dni, request.DoctorId);
 
-
-        return ToResponse(appointment, slot, slot.AvailabilityRule!.Doctor!, patient);
+        return ToResponse(appointment, slot, slot.Doctor!, patient);
     }
 
     public async Task<IEnumerable<AppointmentModel.Response>> GetByPatient(long dni)
@@ -84,7 +92,10 @@ public class AppointmentService : IAppointmentService
             ?? throw new EntityNotFoundException("Appointment");
 
         if (appointment.Status != "BOOKED")
+        {
+            _logger.LogWarning("Intento de cancelar turno {AppointmentId} en estado {Status}", appointment.Id, appointment.Status);
             throw new BusinessRuleException("Solo se pueden cancelar turnos en estado reservado.", "APPOINTMENT_NOT_CANCELLABLE");
+        }
 
         appointment.Cancel();
         await _persistence.Update(appointment);
@@ -95,6 +106,8 @@ public class AppointmentService : IAppointmentService
             slot.MakeAvailable();
             await _persistence.Update(slot);
         }
+
+        _logger.LogInformation("Turno {AppointmentId} cancelado", appointment.Id);
     }
 
     public async Task<IEnumerable<AppointmentModel.Response>> GetByDate(DateOnly date)

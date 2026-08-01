@@ -1,4 +1,5 @@
-﻿using Dsw2026Tpi.Application.Dtos;
+﻿// Dsw2026Tpi.Application/Services/AuthenticationService.cs
+using Dsw2026Tpi.Application.Dtos;
 using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.CrossCutting.Exceptions;
 using Dsw2026Tpi.CrossCutting.Helpers;
@@ -38,36 +39,36 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<LoginAdminModel.Response> LoginAdmin(LoginAdminModel.Request request)
     {
-        if (!request.Email.IsEmailValid()) throw new AuthenticationException();
+        var ex = new ValidationException();
+        if (!request.Email.IsEmailValid())
+            ex.WithDetail("email", "El email es obligatorio y debe tener un formato válido.");
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
+            ex.WithDetail("password", "La contraseña es obligatoria y debe tener un mínimo de 8 caracteres.");
+        if (ex.Error.Details.Count > 0) throw ex;
+
         var user = await _userManager.FindByEmailAsync(request.Email) ?? throw new AuthenticationException();
         var isPaswordValid = await _userManager.CheckPasswordAsync(user, request.Password);
 
-        if(!isPaswordValid)
+        if (!isPaswordValid)
         {
             _logger.LogWarning("Intento de login con contraseña incorrecta para: {Email}", request.Email);
             throw new AuthenticationException();
         }
 
-        //var result = await _signInManager.CheckPassword(user, request.Password);
-
-        //if (!result)
-        //{
-        //    _logger.LogError("Intento de login fallido para: {Email}", request.Email);
-        //    throw new AuthenticationException();
-        //}
+     
 
 
 
         var roles = (await _userManager.GetRolesAsync(user));
 
-        if(!roles.Contains(Roles.Administrator))
+        if (!roles.Contains(Roles.Administrator))
         {
             _logger.LogWarning("Intento de acceso denegado. Usuario sin rol Admin intentó loguearse en portal administrativo: {Email}", request.Email);
             throw new AuthenticationException();
         }
 
         var role = Roles.Administrator;
-        var token  = _jwtService.GenerateToken(user.UserName!, role);
+        var token = _jwtService.GenerateToken(user.UserName!, role);
 
         return new LoginAdminModel.Response(
             token,
@@ -77,17 +78,21 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<LoginPatientModel.Response> LoginPatient(LoginPatientModel.Request request)
     {
-        if (!request.Email.IsEmailValid() || !request.Dni.IsDniValid())
-            throw new AuthenticationException();
+        var ex = new ValidationException();
+        if (!request.Email.IsEmailValid())
+            ex.WithDetail("email", "El email es obligatorio y debe tener un formato válido.");
+        if (!request.Dni.IsDniValid())
+            ex.WithDetail("dni", "El DNI es obligatorio y debe tener 7 u 8 dígitos.");
+        if (ex.Error.Details.Count > 0) throw ex;
 
-        var paciente = await _patientService.GetByDniAsync(request.Dni); 
+        var paciente = await _patientService.GetByDniAsync(request.Dni);
         ApplicationUser? user = null;
 
-        if(paciente == null)
+        if (paciente == null)
         {
             user = await _userManager.FindByEmailAsync(request.Email);
 
-            if(user == null)
+            if (user == null)
             {
                 string tempPassword = GenerateRandomPassword();
                 user = new ApplicationUser
@@ -106,7 +111,7 @@ public class AuthenticationService : IAuthenticationService
                 }
 
                 var roleResult = await _userManager.AddToRoleAsync(user, Roles.Patient);
-                if(!roleResult.Succeeded)
+                if (!roleResult.Succeeded)
                 {
                     _logger.LogError("Error al asignar rol a usuario para paciente: {Errors}", roleResult.Errors);
                     throw new ConflictException(nameof(ErrorCodes.REGISTER_USER_CONFLICT), ErrorCodes.REGISTER_USER_CONFLICT);
@@ -129,7 +134,7 @@ public class AuthenticationService : IAuthenticationService
         else
         {
             user = await _userManager.FindByIdAsync(paciente.UserId) ?? throw new AuthenticationException();
-            if(user == null || !user.Email!.Equals(request.Email, StringComparison.OrdinalIgnoreCase))
+            if (user == null || !user.Email!.Equals(request.Email, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogError("Paciente encontrado con DNI {Dni}, pero no existe un usuario con email {Email}", request.Dni, request.Email);
                 throw new AuthenticationException()
@@ -210,3 +215,4 @@ public class AuthenticationService : IAuthenticationService
         return "Paciente";
     }
 }
+

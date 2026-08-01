@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 
-[Route("specialties")]
+[Route("api/specialties")]
 [Authorize]
 public class SpecialityController : AppController
 {
