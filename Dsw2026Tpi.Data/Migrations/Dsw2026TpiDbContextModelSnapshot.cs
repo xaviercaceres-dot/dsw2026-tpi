@@ -102,6 +102,9 @@ namespace Dsw2026Tpi.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -116,6 +119,26 @@ namespace Dsw2026Tpi.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Specialities", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("d12a12d1-1234-4321-abcd-1234567890ab"),
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Deleted = false,
+                            Description = "Atención dental",
+                            Name = "Odontología",
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = new Guid("f23b23f2-5678-8765-bcde-2345678901bc"),
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Deleted = false,
+                            Description = "Atención infantil",
+                            Name = "Pediatría",
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        });
                 });
 
             modelBuilder.Entity("Dsw2026Tpi.Domain.Entities.Doctor", b =>
