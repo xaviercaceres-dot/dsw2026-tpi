@@ -15,7 +15,7 @@ public class DoctorServiceTests
         var doctorId = Guid.NewGuid();
 
         mockPersistence.Setup(p => p.GetById<Doctor>(doctorId, It.IsAny<string[]>()))
-                        .ReturnsAsync((Doctor)null);
+                        .ReturnsAsync((Doctor)null!);
 
         var doctorService = new DoctorService(mockPersistence.Object);
 
@@ -28,7 +28,7 @@ public class DoctorServiceTests
     {
         var mockPersistence = new Mock<IPersistence>();
         var doctorId = Guid.NewGuid();
-        var existingDoctor = new Doctor("Dr. Test", "LIC001", null, doctorId);
+        var existingDoctor = new Doctor("Dr. Test", "LIC001", null!, doctorId);
 
         mockPersistence.Setup(p => p.GetById<Doctor>(doctorId, It.IsAny<string[]>()))
                        .ReturnsAsync(existingDoctor);
