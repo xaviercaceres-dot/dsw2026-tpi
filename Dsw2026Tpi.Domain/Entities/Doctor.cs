@@ -16,6 +16,7 @@ public class Doctor: EntityBase
 #pragma warning restore CS8618
     #endregion
 
+   
     public Doctor(string name, string licenseNumber, Speciality speciality, Guid? id = null) : base(id)
     {
         Name = name;
@@ -29,11 +30,12 @@ public class Doctor: EntityBase
         IsActive = false;
     }
 
-    public void UpdateDetails(string name, string licenseNumber, Speciality? speciality)
+    public void Update(string name, string licenseNumber, Speciality speciality)
     {
         Name = name;
         LicenseNumber = licenseNumber;
         Speciality = speciality;
-        SpecialityId = speciality?.Id;
+        SpecialityId = speciality.Id;
     }
+
 }

@@ -7,9 +7,11 @@ using Dsw2026Tpi.Domain.Interfaces;
 using System.Linq.Expressions;
 
 namespace Dsw2026Tpi.Application.Services;
-
 public class DoctorService : IDoctorService
 {
+    private static readonly string[] DaysOrder =
+        ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"];
+
     private readonly IPersistence _persistence;
 
     public DoctorService(IPersistence persistence)
@@ -19,7 +21,7 @@ public class DoctorService : IDoctorService
 
     public async Task<DoctorModel.Response> CreateAsync(DoctorModel.Request request)
     {
-        ValidateDoctorRequest(request);
+        ValidateRequest(request);
 
         if (request.SpecialityId == Guid.Empty)
         {
@@ -37,12 +39,7 @@ public class DoctorService : IDoctorService
 
         await _persistence.Add(doctor);
 
-        return new DoctorModel.Response(
-            doctor.Id,
-            doctor.Name,
-            doctor.LicenseNumber,
-            speciality != null ? new DoctorModel.SpecialityDto(speciality.Id, speciality.Name) : null
-        );
+        return ToResponse(doctor);
     }
 
     public async Task DeleteAsync(Guid id)
@@ -50,7 +47,6 @@ public class DoctorService : IDoctorService
         var existingDoctor = await _persistence.GetById<Doctor>(id);
         if (existingDoctor == null || !existingDoctor.IsActive)
         {
-            //throw new ValidationException(ErrorCodes.ENTITY_NOTFOUND, "Doctor not found or inactive.");
             throw new EntityNotFoundException("Doctor");
         }
 
@@ -61,12 +57,6 @@ public class DoctorService : IDoctorService
 
     public async Task<Pagination<DoctorModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null)
     {
-        //var doctors = await _persistence.Paginate<Doctor, string>(pageSize, pageIndex, d => string.IsNullOrWhiteSpace(name) ||
-        //                                           d.Name.Contains(name), x => x.Name, nameof(Doctor.Speciality));
-
-        //return doctors.Map(d => new DoctorModel.Response(d.Id, d.Name, d.LicenseNumber,
-        //    new DoctorModel.SpecialityDto(d.Speciality?.Id, d.Speciality?.Name)));
-
         if (pageSize <= 0) pageSize = 10; 
         if (pageIndex < 0) pageIndex = 0; 
 
@@ -80,12 +70,27 @@ public class DoctorService : IDoctorService
             x => x.Name, 
             nameof(Doctor.Speciality));
 
-        return doctors.Map(d => new DoctorModel.Response(
-            d.Id,
-            d.Name,
-            d.LicenseNumber,
-            d.Speciality != null ? new DoctorModel.SpecialityDto(d.Speciality.Id, d.Speciality.Name) : null
-        ));
+        return doctors.Map(d=> ToResponse(d));
+    }
+
+    public async Task<IEnumerable<DoctorModel.AvailabilityDto>> GetAvailabilitiesAsync(Guid doctorId)
+    {
+        _ = await _persistence.GetById<Doctor>(doctorId) ?? throw new EntityNotFoundException("Doctor");
+
+        var today = DateTime.Today;
+        var rules = await _persistence.GetFiltered<AvailabilityRule>(
+            r => r.DoctorId == doctorId && r.Month == today.Month && r.Year == today.Year);
+
+        if (rules is null || !rules.Any()) return [];
+
+        return rules
+            .OrderBy(r => Array.IndexOf(DaysOrder, r.DayOfWeek))
+            .Select(r => new DoctorModel.AvailabilityDto(
+                r.Id,
+                r.DayOfWeek!,
+                Format(r.StartTime),
+                Format(r.EndTime)
+            ));
     }
 
     public async Task<DoctorModel.Response?> GetByIdAsync(Guid id)
@@ -95,22 +100,16 @@ public class DoctorService : IDoctorService
         {
             return null;
         }
-        return new DoctorModel.Response(
-            doctor.Id,
-            doctor.Name,
-            doctor.LicenseNumber,
-            doctor.Speciality != null ? new DoctorModel.SpecialityDto(doctor.Speciality.Id, doctor.Speciality.Name) : null
-        );
+        return ToResponse(doctor);
     }
 
     public async Task<DoctorModel.Response> UpdateAsync(Guid id, DoctorModel.Request request)
     {
-        ValidateDoctorRequest(request);
+        ValidateRequest(request);
 
         var existingDoctor = await _persistence.GetById<Doctor>(id, nameof(Doctor.Speciality));
         if (existingDoctor == null || !existingDoctor.IsActive)
         {
-            //throw new ValidationException(ErrorCodes.ENTITY_NOTFOUND, "Doctor not found or inactive.");
             throw new EntityNotFoundException("Doctor");
         }
 
@@ -120,12 +119,11 @@ public class DoctorService : IDoctorService
             speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
             if (speciality == null)
             {
-                //throw new ValidationException(ErrorCodes.ENTITY_NOTFOUND, "Speciality not found.");
                 throw new EntityNotFoundException("Speciality");
             }
         }
 
-        existingDoctor.UpdateDetails(request.Name, request.LicenseNumber, speciality); 
+        existingDoctor.Update(request.Name, request.LicenseNumber, speciality); 
 
         await _persistence.Update(existingDoctor);
 
@@ -133,22 +131,28 @@ public class DoctorService : IDoctorService
            existingDoctor.Id,
            existingDoctor.Name,
            existingDoctor.LicenseNumber,
-           existingDoctor.Speciality != null ? new DoctorModel.SpecialityDto(existingDoctor.Speciality.Id, existingDoctor.Speciality.Name) : null
+           existingDoctor.Speciality != null ? new DoctorModel.SpecialtyDto(existingDoctor.Speciality.Id, existingDoctor.Speciality.Name) : null
        );
     }
 
-    private static void ValidateDoctorRequest(DoctorModel.Request request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Name))
-            throw new ValidationException(ErrorCodes.DOCTOR_NAME_REQUIRED, "Doctor name is required.");
+    private static string Format(TimeSpan time) => time.ToString(@"hh\:mm");
 
-        if (request.Name.Length < 3 || request.Name.Length > 100)
-            throw new ValidationException(ErrorCodes.DOCTOR_NAME_LENGTH_INVALID, "Doctor name must be between 3 and 100 characters.");
+    private static DoctorModel.Response ToResponse(Doctor d) =>
+        new(d.Id, d.Name, d.LicenseNumber, new DoctorModel.SpecialtyDto(d.Speciality?.Id, d.Speciality?.Name));
+
+    private static void ValidateRequest(DoctorModel.Request request)
+    {
+        var ex = new ValidationException();
+
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length < 3 || request.Name.Length > 100)
+            ex.WithDetail("name", "El nombre es obligatorio y debe tener entre 3 y 100 caracteres.");
 
         if (string.IsNullOrWhiteSpace(request.LicenseNumber))
-            throw new ValidationException(ErrorCodes.DOCTOR_LICENSE_NUMBER_REQUIRED, "Doctor license number is required.");
+            ex.WithDetail("licenseNumber", "El número de matrícula es obligatorio.");
 
-        if (request.LicenseNumber.Length > 50)
-            throw new ValidationException(ErrorCodes.DOCTOR_LICENSE_NUMBER_LENGTH_INVALID, "Doctor license number must be at most 50 characters.");
+        if (request.SpecialityId == Guid.Empty)
+            ex.WithDetail("specialtyId", "La especialidad es obligatoria.");
+
+        if (ex.Error.Details.Count > 0) throw ex;
     }
 }

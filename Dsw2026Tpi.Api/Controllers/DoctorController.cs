@@ -7,8 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Dsw2026Tpi.Api.Controllers;
 
-[Route("doctors")]
-[Authorize(Policy = Policies.AdminPolicy)]
+[Route("api/doctors")]
+
+[Authorize]
 public class DoctorController : AppController
 {
     private readonly IDoctorService _service;
@@ -43,19 +44,8 @@ public class DoctorController : AppController
     [ProducesResponseType(StatusCodes.Status404NotFound)] 
     public async Task<IActionResult> GetAvailabilities([FromRoute] Guid id)
     {
-        // TODO: Implementar cuando se mergee el PR de disponibilidades
-        // var availabilities = await _availabilityService.GetAvailabilitiesForDoctor(id);
-        // return Ok(availabilities);
-
-        // Por ahora, devolver lista vacía o manejar el caso donde no exista el módulo aún
-        // Si _availabilityService no está disponible, puedes devolver vacío o lanzar una excepción específica
-        // Si el ID del doctor es inválido, retornar NotFound (esto lo haría el servicio si lo tuviera)
-        // Opcional: Validar si el doctor existe (aunque el servicio de disponibilidad debería hacerlo)
-        // var doctorExists = await _service.GetByIdAsync(id) != null;
-        // if (!doctorExists) return NotFound();
-
-        // Por ahora, devolvemos una lista vacía como placeholder
-        return Ok(Array.Empty<object>()); // Reemplaza object con el tipo real de AvailabilityDto cuando lo tengas
+        var availabilities = await _service.GetAvailabilitiesAsync(id);
+        return Ok(availabilities); 
     }
 
     [HttpGet("{id:guid}")] 
