@@ -136,7 +136,7 @@ public class AppointmentService : IAppointmentService
     }
 
     private static AppointmentModel.Response ToResponse(Appointment a, AvailabilitySlot slot, Doctor doctor, Patient patient) =>
-        new(a.Id, doctor.Id, doctor.Name, doctor.Speciality?.Name ?? string.Empty,
-            patient.Dni, patient.Name, DateOnly.FromDateTime(slot.SlotDate),
+        new(a.Id, doctor.Id, doctor.Name!, doctor.Speciality?.Name ?? string.Empty,
+            patient.Dni, patient.Name!, DateOnly.FromDateTime(slot.SlotDate),
             slot.StartTime.ToString(@"hh\:mm"), slot.EndTime.ToString(@"hh\:mm"), a.Reason, a.Status);
 }
