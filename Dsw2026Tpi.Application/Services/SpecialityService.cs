@@ -29,8 +29,7 @@ namespace Dsw2026Tpi.Application.Services
             if (ex.Error.Details.Count > 0) throw ex;
 
             var result = await _persistence.Paginate<Speciality, string>(pageSize, pageIndex,
-                s => s.IsActive && (string.IsNullOrWhiteSpace(name) || s.Name!.Contains(name)),
-                s => s.Name!);
+                s => s.IsActive && (string.IsNullOrWhiteSpace(name) || s.Name!.Contains(name)), s => s.Name!);
 
             return result.Map(s => new SpecialityModel.Response(s.Id, s.Name!, s.Description!));
         }
@@ -44,7 +43,7 @@ namespace Dsw2026Tpi.Application.Services
 
             var speciality = new Speciality(request.Name, request.Description);
             await _persistence.Add(speciality);
-            return new SpecialityModel.Response(speciality.Id, speciality.Name, speciality.Description);
+            return new SpecialityModel.Response(speciality.Id, speciality.Name!, speciality.Description!);
         }
 
         public async Task<SpecialityModel.Response> Update(Guid id, SpecialityModel.Request request)
@@ -53,7 +52,7 @@ namespace Dsw2026Tpi.Application.Services
             var speciality = await _persistence.GetById<Speciality>(id) ?? throw new EntityNotFoundException("Speciality");
             speciality.Update(request.Name, request.Description);
             await _persistence.Update(speciality);
-            return new SpecialityModel.Response(speciality.Id, speciality.Name, speciality.Description);
+            return new SpecialityModel.Response(speciality.Id, speciality.Name!, speciality.Description!);
         }
 
         public async Task Delete(Guid id)

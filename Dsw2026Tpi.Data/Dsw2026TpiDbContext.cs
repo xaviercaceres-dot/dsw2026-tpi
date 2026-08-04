@@ -21,6 +21,8 @@ public class Dsw2026TpiDbContext: DbContext
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+
     }
 
     //metodo para setear CreatedAt y UpdatedAt en todas las entidades que heredan de EntityBase

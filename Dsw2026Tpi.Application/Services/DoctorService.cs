@@ -123,7 +123,7 @@ public class DoctorService : IDoctorService
             }
         }
 
-        existingDoctor.Update(request.Name, request.LicenseNumber, speciality); 
+        existingDoctor.Update(request.Name, request.LicenseNumber, speciality!); 
 
         await _persistence.Update(existingDoctor);
 
