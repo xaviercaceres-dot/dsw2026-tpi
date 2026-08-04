@@ -8,9 +8,10 @@ namespace Dsw2026Tpi.Application.Interfaces
     
         public interface IAvailabilityService
         {
-            Task Create(AvailabilityModel.Request request);
-            Task Update(AvailabilityModel.Request request);
-            Task<IEnumerable<AvailabilityModel.SlotDto>> GetAvailableSlots(Guid doctorId, DateOnly date);
+        Task<IEnumerable<AvailabilityModel.RuleDto>> Create(AvailabilityModel.Request request);
+        Task<IEnumerable<AvailabilityModel.RuleDto>> Update(AvailabilityModel.Request request);
+        Task<IEnumerable<AvailabilityModel.SlotDto>> GetAvailableSlots(Guid doctorId, DateOnly date);
+   
         }
 
     

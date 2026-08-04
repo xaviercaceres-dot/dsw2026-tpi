@@ -8,6 +8,7 @@ namespace Dsw2026Tpi.Application.Dtos
     {
         public record DayScheduleDto(string Day, string StartTime, string EndTime);
         public record SlotDto(Guid Id, string StartTime, string EndTime, string Status);
+        public record RuleDto(Guid Id, string Day, string StartTime, string EndTime);
         public record Request(Guid DoctorId, List<DayScheduleDto> Days);
 
     }

@@ -23,8 +23,8 @@ public class DoctorController : AppController
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)] 
     [ProducesResponseType(StatusCodes.Status401Unauthorized)] 
-    [ProducesResponseType(StatusCodes.Status403Forbidden)] 
-    public async Task<IActionResult> GetAll([FromQuery]int pageSize, [FromQuery]int pageIndex, [FromQuery]string? name = null)
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAll([FromQuery] int pageSize = 10, [FromQuery] int pageIndex = 1, [FromQuery] string? name = null)
     {
         var doctors = await _service.GetAll(pageSize, pageIndex, name);
         return Ok(new
@@ -48,56 +48,45 @@ public class DoctorController : AppController
         return Ok(availabilities); 
     }
 
-    [HttpGet("{id:guid}")] 
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)] 
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)] 
-    [ProducesResponseType(StatusCodes.Status403Forbidden)] 
-    [ProducesResponseType(StatusCodes.Status404NotFound)] 
-    public async Task<IActionResult> GetById([FromRoute] Guid id)
-    {
-        var doctor = await _service.GetByIdAsync(id);
-        if (doctor == null)
-        {
-            return NotFound(); 
-        }
-        return Ok(doctor);
-    }
-
     [HttpPost]
+    [Authorize(Policy = Policies.AdminPolicy)]
     [ProducesResponseType(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)] 
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)] 
-    [ProducesResponseType(StatusCodes.Status403Forbidden)] 
-    [ProducesResponseType(StatusCodes.Status409Conflict)] 
-    public async Task<IActionResult> Create([FromBody] DoctorModel.Request request) 
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+  
+   public async Task<IActionResult> Create([FromBody] DoctorModel.Request request)
     {
         var doctor = await _service.CreateAsync(request);
-        return CreatedAtAction(nameof(GetById), new { id = doctor.Id }, doctor);
+        return StatusCode(StatusCodes.Status201Created, doctor);
     }
 
-    [HttpPut("{id:guid}")] 
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = Policies.AdminPolicy)]
     [ProducesResponseType(StatusCodes.Status200OK)] 
     [ProducesResponseType(StatusCodes.Status400BadRequest)] 
     [ProducesResponseType(StatusCodes.Status401Unauthorized)] 
     [ProducesResponseType(StatusCodes.Status403Forbidden)] 
-    [ProducesResponseType(StatusCodes.Status404NotFound)] 
-    public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] DoctorModel.Request request) 
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] DoctorModel.Request request)
+
     {
         var doctor = await _service.UpdateAsync(id, request);
         return Ok(doctor);
     }
 
-    [HttpDelete("{id:guid}")] 
-    [ProducesResponseType(StatusCodes.Status204NoContent)] 
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = Policies.AdminPolicy)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)] 
     [ProducesResponseType(StatusCodes.Status401Unauthorized)] 
     [ProducesResponseType(StatusCodes.Status403Forbidden)] 
-    [ProducesResponseType(StatusCodes.Status404NotFound)] 
-    public async Task<IActionResult> Delete([FromRoute] Guid id) 
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete([FromRoute] Guid id)
     {
-        await _service.DeleteAsync(id); 
-        return NoContent();
+        await _service.DeleteAsync(id);
+        return Ok("ok");
     }
 
 }

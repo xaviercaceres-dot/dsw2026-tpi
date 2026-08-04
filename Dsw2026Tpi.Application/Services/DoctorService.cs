@@ -23,11 +23,6 @@ public class DoctorService : IDoctorService
     {
         ValidateRequest(request);
 
-        if (request.SpecialityId == Guid.Empty)
-        {
-            throw new ValidationException(ErrorCodes.DOCTOR_SPECIALITY_ID_REQUIRED, "Speciality ID is required.");
-        }
-
         var speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
 
         if(speciality == null)
@@ -93,15 +88,7 @@ public class DoctorService : IDoctorService
             ));
     }
 
-    public async Task<DoctorModel.Response?> GetByIdAsync(Guid id)
-    {
-        var doctor = await _persistence.GetById<Doctor>(id, nameof(Doctor.Speciality));
-        if (doctor == null || !doctor.IsActive) 
-        {
-            return null;
-        }
-        return ToResponse(doctor);
-    }
+
 
     public async Task<DoctorModel.Response> UpdateAsync(Guid id, DoctorModel.Request request)
     {

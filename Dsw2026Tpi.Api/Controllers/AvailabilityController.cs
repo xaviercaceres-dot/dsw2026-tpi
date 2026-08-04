@@ -34,8 +34,8 @@ namespace Dsw2026Tpi.Api.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Create([FromBody] AvailabilityModel.Request request)
         {
-            await _service.Create(request);
-            return StatusCode(StatusCodes.Status201Created);
+            var rules = await _service.Create(request);
+            return StatusCode(StatusCodes.Status201Created, rules);
         }
 
         [HttpPut]
@@ -46,8 +46,8 @@ namespace Dsw2026Tpi.Api.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> Update([FromBody] AvailabilityModel.Request request)
         {
-            await _service.Update(request);
-            return Ok();
+            var rules = await _service.Update(request);
+            return Ok(rules);
         }
     }
 }

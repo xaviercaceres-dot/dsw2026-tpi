@@ -1,6 +1,7 @@
 ﻿using Dsw2026Tpi.Application.Dtos;
 using Dsw2026Tpi.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Dsw2026Tpi.Api.Controllers;
 
@@ -14,17 +15,8 @@ public class AuthenticationController : AppController
         _authenticationService = authenticationService;
     }
 
-
-    [HttpPost("admin/register")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Register([FromBody] RegisterModel.Request request)
-    {
-        var result = await _authenticationService.Register(request);
-        return Ok(result.Email);
-    }
-
     [HttpPost("admin/login")]
+    [EnableRateLimiting("AdminLogin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Login([FromBody] LoginAdminModel.Request request)
@@ -34,6 +26,7 @@ public class AuthenticationController : AppController
     }
 
     [HttpPost("patient/login")]
+    [EnableRateLimiting("PatientLogin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> LoginPatient([FromBody] LoginPatientModel.Request request)

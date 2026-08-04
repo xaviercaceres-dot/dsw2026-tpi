@@ -31,6 +31,7 @@ public class Program
             builder.Services.AddAppDependencies();
             builder.Services.AddControllers();
             builder.Services.AddHealthChecks();
+            builder.Services.AddAppRateLimiting(builder.Configuration);
 
             var app = builder.Build();
 
@@ -48,11 +49,11 @@ public class Program
                 app.UseSwaggerUI();
             }
 
+            app.UseMiddleware<ExceptionHandlingMiddleware>();
+            app.UseCors();
             app.UseAuthentication();
             app.UseAuthorization();
-            app.UseCors();
-            app.UseMiddleware<ExceptionHandlingMiddleware>();
-
+            app.UseRateLimiter();
             app.MapControllers();
             app.MapHealthChecks("/health-check");
 

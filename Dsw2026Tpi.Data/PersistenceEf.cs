@@ -5,7 +5,7 @@ using System.Linq.Expressions;
 
 namespace Dsw2026Tpi.Data;
 
-public class PersistenceEf: IPersistence
+public class PersistenceEf : IPersistence
 {
     private readonly Dsw2026TpiDbContext _context;
 
@@ -58,8 +58,13 @@ public class PersistenceEf: IPersistence
 
     public async Task<Pagination<T>> Paginate<T, TKey>(int pageSize, int pageIndex, Expression<Func<T, bool>> predicate, Expression<Func<T, TKey>> sortOrder, params string[] includes) where T : EntityBase
     {
+       
+        var requestedPageIndex = pageIndex;
+
         pageSize = Math.Abs(pageSize);
-        pageIndex = Math.Abs(pageIndex) == 0 ? 0 : Math.Abs(pageIndex) - 1;
+
+       
+        var zeroBasedIndex = Math.Abs(pageIndex) == 0 ? 0 : Math.Abs(pageIndex) - 1;
 
         var filtered = Include(_context.Set<T>(), includes)
                  .Where(predicate)
@@ -67,29 +72,29 @@ public class PersistenceEf: IPersistence
 
         var total = await filtered.CountAsync();
 
-        
+
         async Task<Pagination<T>> GetPage(int skip, int take)
         {
             var data = await filtered.Skip(skip)
                     .Take(take)
                     .ToListAsync();
 
-            return new Pagination<T>(pageSize, pageIndex, total, data);
-        }
-        
-        //la pagina existe
-        if (total > pageSize * pageIndex)
-        {
-            return await GetPage(pageIndex * pageSize, pageSize);
+            return new Pagination<T>(pageSize, requestedPageIndex, total, data);
         }
 
-        //solo hay una pagina
+        
+        if (total > pageSize * zeroBasedIndex)
+        {
+            return await GetPage(zeroBasedIndex * pageSize, pageSize);
+        }
+
+      
         if (total < pageSize)
         {
-            return new Pagination<T>(pageSize, pageIndex, total, await filtered.ToListAsync());
+            return new Pagination<T>(pageSize, requestedPageIndex, total, await filtered.ToListAsync());
         }
 
-        var targetPageIndex = pageIndex - 1;
+        var targetPageIndex = zeroBasedIndex - 1;
 
         while (true)
         {
@@ -100,7 +105,7 @@ public class PersistenceEf: IPersistence
 
             targetPageIndex--;
 
-            if (targetPageIndex < 0) return new Pagination<T>(pageSize, 0, 0, []);
+            if (targetPageIndex < 0) return new Pagination<T>(pageSize, requestedPageIndex, 0, []);
         }
     }
 
