@@ -6,9 +6,9 @@ namespace Dsw2026Tpi.Application.Interfaces;
 public interface IDoctorService
 {
     Task<Pagination<DoctorModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null);
-    Task<DoctorModel.Response> Create(DoctorModel.Request request);
-    Task<DoctorModel.Response> Update(Guid id, DoctorModel.Request request);
-    Task Delete(Guid id);
-    Task<IEnumerable<DoctorModel.AvailabilityDto>> GetAvailabilities(Guid doctorId);
-
+    Task<DoctorModel.Response?> GetByIdAsync(Guid id);
+    Task<DoctorModel.Response> CreateAsync(DoctorModel.Request request);
+    Task<DoctorModel.Response> UpdateAsync(Guid id, DoctorModel.Request request);
+    Task<IEnumerable<DoctorModel.AvailabilityDto>> GetAvailabilitiesAsync(Guid doctorId);
+    Task DeleteAsync(Guid id);
 }

@@ -10,7 +10,7 @@ namespace Dsw2026Tpi.Domain.Entities
         public Doctor? Doctor { get; init; }
         public int Month { get; init; }
         public int Year { get; init; }
-        public string DayOfWeek { get; init; }
+        public string? DayOfWeek { get; init; }
         public TimeSpan StartTime { get; init; }
         public TimeSpan EndTime { get; init; }
 

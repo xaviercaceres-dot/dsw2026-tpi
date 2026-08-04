@@ -8,7 +8,7 @@ namespace Dsw2026Tpi.Domain.Entities
 
     {
         public Guid AvailabilityRuleId { get; init; }
-        public AvailabilityRule AvailabilityRule { get; private set; }
+        public AvailabilityRule? AvailabilityRule { get; private set; }
         public Guid DoctorId { get; init; }
 
         public Doctor? Doctor { get; init; }

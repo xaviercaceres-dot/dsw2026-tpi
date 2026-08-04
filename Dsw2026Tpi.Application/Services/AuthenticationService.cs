@@ -55,10 +55,6 @@ public class AuthenticationService : IAuthenticationService
             throw new AuthenticationException();
         }
 
-     
-
-
-
         var roles = (await _userManager.GetRolesAsync(user));
 
         if (!roles.Contains(Roles.Administrator))
@@ -133,6 +129,8 @@ public class AuthenticationService : IAuthenticationService
         }
         else
         {
+            if (string.IsNullOrEmpty(paciente.UserId)) throw new AuthenticationException();
+
             user = await _userManager.FindByIdAsync(paciente.UserId) ?? throw new AuthenticationException();
             if (user == null || !user.Email!.Equals(request.Email, StringComparison.OrdinalIgnoreCase))
             {
@@ -180,8 +178,6 @@ public class AuthenticationService : IAuthenticationService
         if (!result.Succeeded) throw new ValidationException(ErrorCodes.REGISTER_USER_INVALID,
             "Los datos proporcionados no cumplen con las políticas de seguridad.")
                 .WithDetail(result.Errors.Select(e => (e.Code, e.Description)));
-
-        //_ = await _userManager.AddToRoleAsync(user, Roles.Administrator);
 
         var roleResult = await _userManager.AddToRoleAsync(user, Roles.Administrator);
         if (!roleResult.Succeeded)

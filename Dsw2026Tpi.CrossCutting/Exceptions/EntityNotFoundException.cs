@@ -12,4 +12,9 @@ public class EntityNotFoundException : AppException
             nameof(ErrorCodes.ENTITY_NOTFOUND))
     {
     }
+
+    public EntityNotFoundException(string message, string errorCode)
+        : base(message, errorCode, null)
+    {
+    }
 }

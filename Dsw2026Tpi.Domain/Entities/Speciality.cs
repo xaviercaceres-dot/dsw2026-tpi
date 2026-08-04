@@ -1,4 +1,6 @@
-﻿namespace Dsw2026Tpi.Domain.Entities;
+﻿using System.Text.Json.Serialization;
+
+namespace Dsw2026Tpi.Domain.Entities;
 
 public class Speciality: EntityBase
 {
