@@ -10,16 +10,29 @@ using System.Text;
 namespace Dsw2026Tpi.Application.Services
 {
     public  class SpecialityService : ISpecialityService
-{
+    {
     private readonly IPersistence _persistence;
         public SpecialityService(IPersistence persistence) => _persistence = persistence;
 
         public async Task<Pagination<SpecialityModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null)
         {
-            var result = await _persistence.Paginate<Speciality, string>(pageSize, pageIndex,
-                s => s.IsActive && (string.IsNullOrWhiteSpace(name) || s.Name.Contains(name)), s => s.Name);
+            var ex = new ValidationException();
 
-            return result.Map(s => new SpecialityModel.Response(s.Id, s.Name, s.Description));
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                if (name.Length < 3 || name.Length > 100)
+                {
+                    ex.WithDetail("name", "El filtro por nombre debe tener entre 3 y 100 caracteres.");
+                }
+            }
+
+            if (ex.Error.Details.Count > 0) throw ex;
+
+            var result = await _persistence.Paginate<Speciality, string>(pageSize, pageIndex,
+                s => s.IsActive && (string.IsNullOrWhiteSpace(name) || s.Name!.Contains(name)),
+                s => s.Name!);
+
+            return result.Map(s => new SpecialityModel.Response(s.Id, s.Name!, s.Description!));
         }
 
         public async Task<SpecialityModel.Response> Create(SpecialityModel.Request request)
