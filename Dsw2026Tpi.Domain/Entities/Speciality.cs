@@ -4,7 +4,9 @@ namespace Dsw2026Tpi.Domain.Entities;
 
 public class Speciality : EntityBase
 {
+    [JsonInclude]
     public string ?Name { get; private set; }
+    [JsonInclude]
     public string ?Description { get; private set; }
 
     public bool IsActive { get; private set; }
