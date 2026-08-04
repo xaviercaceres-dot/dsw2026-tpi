@@ -11,12 +11,13 @@ public class ValidationException : AppException
     public ValidationException()
         : base(
             ErrorCodes.VALIDATION_ERROR,
-            nameof(ErrorCodes.VALIDATION_ERROR))
+            nameof(ErrorCodes.VALIDATION_ERROR),
+            null)
     {
     }
 
     public ValidationException(string message, string errorCode)
-        : base(message, errorCode)
+        : base(message, errorCode, null)
     {
     }
 }

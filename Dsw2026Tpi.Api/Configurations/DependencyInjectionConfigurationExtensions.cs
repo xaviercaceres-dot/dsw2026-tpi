@@ -10,8 +10,11 @@ public static class DependencyInjectionConfigurationExtensions
 {
     public static IServiceCollection AddAppDependencies(this IServiceCollection services)
     {
+        services.AddScoped<ISpecialityService, SpecialityService>();
+        services.AddScoped<IAppointmentService, AppointmentService>();
         services.AddScoped<IPersistence, PersistenceEf>();
         services.AddScoped<IDoctorService, DoctorService>();
+        services.AddScoped<IAvailabilityService, AvailabilityService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<ISignInService, SignInService>();
         services.AddScoped<IPatientService, PatientService>();

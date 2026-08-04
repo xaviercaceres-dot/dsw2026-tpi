@@ -37,7 +37,8 @@ public class ExceptionHandlingMiddleware
             new ErrorResponse(nameof(ErrorCodes.UNHANDLED_ERROR), ErrorCodes.UNHANDLED_ERROR);
         var status = ex switch
         {
-            ValidationException => HttpStatusCode.BadRequest, 
+            ValidationException => HttpStatusCode.BadRequest,
+            BusinessRuleException => HttpStatusCode.BadRequest,
             EntityNotFoundException => HttpStatusCode.NotFound,
             ConflictException => HttpStatusCode.Conflict, 
             AuthenticationException => HttpStatusCode.Unauthorized, 

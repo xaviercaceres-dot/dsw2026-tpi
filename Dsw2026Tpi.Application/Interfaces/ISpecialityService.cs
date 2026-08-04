@@ -1,11 +1,16 @@
 ﻿using Dsw2026Tpi.Application.Dtos;
+using Dsw2026Tpi.Domain.Entities;
+using System;
+using System.Collections.Generic;
+using System.Text;
 
-namespace Dsw2026Tpi.Application.Interfaces;
-
-public interface ISpecialityService
+namespace Dsw2026Tpi.Application.Interfaces
 {
-    Task<IEnumerable<SpecialityModel>> GetAllAsync(int pageSize, int pageIndex, string? name);
-    Task<SpecialityModel> CreateAsync(SpecialityModel model);
-    Task<SpecialityModel> UpdateAsync(Guid id, SpecialityModel model);
-    Task DeleteAsync(Guid id);
+    public interface ISpecialityService
+    {
+        Task<Pagination<SpecialityModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null);
+        Task<SpecialityModel.Response> Create(SpecialityModel.Request request);
+        Task<SpecialityModel.Response> Update(Guid id, SpecialityModel.Request request);
+        Task Delete(Guid id);
+    }
 }

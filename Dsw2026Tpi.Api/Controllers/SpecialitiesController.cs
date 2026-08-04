@@ -18,28 +18,28 @@ public class SpecialitiesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] int pageSize = 10, [FromQuery] int pageIndex = 0, [FromQuery] string? name = null)
     {
-        var result = await _service.GetAllAsync(pageSize, pageIndex, name);
+        var result = await _service.GetAll(pageSize, pageIndex, name);
         return Ok(result);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(SpecialityModel model)
+    public async Task<IActionResult> Create(SpecialityModel.Request model)
     {
-        var result = await _service.CreateAsync(model);
+        var result = await _service.Create(model);
         return Ok(result);
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, SpecialityModel model)
+    public async Task<IActionResult> Update(Guid id, SpecialityModel.Request model)
     {
-        var result = await _service.UpdateAsync(id, model);
+        var result = await _service.Update(id, model);
         return Ok(result);
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _service.DeleteAsync(id);
+        await _service.Delete(id);
         return Ok("ok");
     }
 }

@@ -1,8 +1,12 @@
-﻿namespace Dsw2026Tpi.Application.Dtos;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 
-public class SpecialityModel
+namespace Dsw2026Tpi.Application.Dtos
 {
-    public Guid Id { get; set; }
-    public string? Name { get; set; }
-    public string? Description { get; set; }
+    public record SpecialityModel
+    {
+        public record Request(string Name, string Description);
+        public record Response(Guid Id, string Name, string Description);
+    }
 }
