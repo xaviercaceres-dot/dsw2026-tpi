@@ -120,7 +120,6 @@ public class AvailabilityService : IAvailabilityService
                 if (holidays.Contains(date.Date)) continue;
 
                 for (var slotStart = start; slotStart + SlotDuration <= end; slotStart += SlotDuration)
-                    //await _persistence.Add(new AvailabilitySlot(rule.Id, request.DoctorId, date.Date, slotStart, slotStart + SlotDuration));
                     slotsToInsert.Add(new AvailabilitySlot(rule.Id, request.DoctorId, date.Date, slotStart, slotStart + SlotDuration));
             }
 
