@@ -26,14 +26,15 @@ public class DoctorController : AppController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAll([FromQuery] int pageSize = 10, [FromQuery] int pageIndex = 1, [FromQuery] string? name = null)
     {
-        var doctors = await _service.GetAll(pageSize, pageIndex, name);
-        return Ok(new
-        {
-            pageSize = doctors.PageSize,
-            pageIndex = doctors.PageIndex,
-            data = doctors.Data,
-            total = doctors.Total
-        });
+        //var doctors = await _service.GetAll(pageSize, pageIndex, name);
+        //return Ok(new
+        //{
+        //    pageSize = doctors.PageSize,
+        //    pageIndex = doctors.PageIndex,
+        //    data = doctors.Data,
+        //    total = doctors.Total
+        //});
+        return Ok(await _service.GetAll(pageSize, pageIndex, name));
     }
 
     [HttpGet("{id:guid}/availabilities")] 

@@ -13,8 +13,8 @@ namespace Dsw2026Tpi.Application.Services;
 
 public class AppointmentService : IAppointmentService
 {
-    private const string SlotIncludes1 = "AvailabilitySlot.AvailabilityRule.Doctor.Speciality";
-    private const string SlotIncludes2 = "Patient";
+    private const string SlotIncludes1 = $"{nameof(AvailabilitySlot)}.{nameof(AvailabilityRule)}.{nameof(Doctor)}.{nameof(Doctor.Speciality)}";
+    private const string SlotIncludes2 = nameof(Patient);
 
     private readonly IPersistence _persistence;
     private readonly IPatientService _patientService;

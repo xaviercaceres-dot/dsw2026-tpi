@@ -11,11 +11,14 @@ namespace Dsw2026Tpi.Application.Services
 {
     public  class SpecialityService : ISpecialityService
     {
-    private readonly IPersistence _persistence;
+        private readonly IPersistence _persistence;
         public SpecialityService(IPersistence persistence) => _persistence = persistence;
 
         public async Task<Pagination<SpecialityModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null)
         {
+            if (pageSize <= 0) pageSize = 10;
+            if (pageIndex <= 0) pageIndex = 1;
+
             var ex = new ValidationException();
 
             if (!string.IsNullOrWhiteSpace(name))

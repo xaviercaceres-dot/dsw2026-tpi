@@ -21,12 +21,24 @@ public class PersistenceEf : IPersistence
         return entity;
     }
 
+    public async Task AddRange<T>(IEnumerable<T> entities) where T : EntityBase
+    {
+        await _context.AddRangeAsync(entities);
+        await _context.SaveChangesAsync(); 
+    }
+
     public async Task<T> Delete<T>(T entity) where T : EntityBase
     {
         var a = entity.Id;
         _context.Remove(entity);
         await _context.SaveChangesAsync();
         return entity;
+    }
+
+    public async Task DeleteRange<T>(IEnumerable<T> entities) where T : EntityBase
+    {
+        _context.RemoveRange(entities);
+        await _context.SaveChangesAsync();
     }
 
     public async Task<T?> First<T>(Expression<Func<T, bool>> predicate, params string[] include) where T : EntityBase
@@ -36,7 +48,7 @@ public class PersistenceEf : IPersistence
 
     public async Task<IEnumerable<T>?> GetAll<T>(params string[] include) where T : EntityBase
     {
-        return await Include(_context.Set<T>(), include).ToListAsync();
+        return await Include(_context.Set<T>(), include).AsNoTracking().ToListAsync();
     }
 
     public async Task<T?> GetById<T>(Guid id, params string[] include) where T : EntityBase
@@ -46,7 +58,7 @@ public class PersistenceEf : IPersistence
 
     public async Task<IEnumerable<T>?> GetFiltered<T>(Expression<Func<T, bool>> predicate, params string[] include) where T : EntityBase
     {
-        return await Include(_context.Set<T>(), include).Where(predicate).ToListAsync();
+        return await Include(_context.Set<T>(), include).AsNoTracking().Where(predicate).ToListAsync();
     }
 
     public async Task<T> Update<T>(T entity) where T : EntityBase
@@ -67,6 +79,7 @@ public class PersistenceEf : IPersistence
         var zeroBasedIndex = Math.Abs(pageIndex) == 0 ? 0 : Math.Abs(pageIndex) - 1;
 
         var filtered = Include(_context.Set<T>(), includes)
+                 .AsNoTracking()
                  .Where(predicate)
                  .OrderBy(sortOrder);
 
