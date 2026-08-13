@@ -15,6 +15,15 @@ public class AuthenticationController : AppController
         _authenticationService = authenticationService;
     }
 
+    [HttpPost("admin/register")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Register([FromBody] RegisterModel.Request request)
+    {
+        var result = await _authenticationService.Register(request);
+        return Ok(result.Email);
+    }
+
     [HttpPost("admin/login")]
     [EnableRateLimiting("AdminLogin")]
     [ProducesResponseType(StatusCodes.Status200OK)]

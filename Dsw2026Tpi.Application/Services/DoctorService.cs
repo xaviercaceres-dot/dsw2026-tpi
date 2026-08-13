@@ -52,8 +52,8 @@ public class DoctorService : IDoctorService
 
     public async Task<Pagination<DoctorModel.Response>> GetAll(int pageSize, int pageIndex, string? name = null)
     {
-        if (pageSize <= 0) pageSize = 10; 
-        if (pageIndex < 0) pageIndex = 0; 
+        if (pageSize <= 0) pageSize = 10;
+        if (pageIndex <= 0) pageIndex = 1;
 
         Expression<Func<Doctor, bool>> filterPredicate = d =>
             d.IsActive && 
