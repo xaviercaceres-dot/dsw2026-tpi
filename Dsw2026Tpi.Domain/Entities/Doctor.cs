@@ -8,6 +8,9 @@ public class Doctor: EntityBase
     public Guid? SpecialityId { get; private set; }
     public Speciality? Speciality { get; private set; }
 
+    private readonly List<AvailabilityRule> _availabilityRules = new();
+    public IReadOnlyCollection<AvailabilityRule> AvailabilityRules => _availabilityRules.AsReadOnly();
+
     #region Constructor for EF
 #pragma warning disable CS8618
     private Doctor()

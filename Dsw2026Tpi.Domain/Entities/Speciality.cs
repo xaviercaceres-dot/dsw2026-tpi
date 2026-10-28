@@ -10,6 +10,10 @@ public class Speciality : EntityBase
     public string ?Description { get; private set; }
 
     public bool IsActive { get; private set; }
+
+    private readonly List<Doctor> _doctors = new List<Doctor>();
+    public IReadOnlyCollection<Doctor> Doctors => _doctors.AsReadOnly();
+
     #region Constructor for EF
 #pragma warning disable CS8618
     public Speciality() { }
