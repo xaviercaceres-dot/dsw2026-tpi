@@ -42,7 +42,7 @@ public class DoctorConfiguration : IEntityTypeConfiguration<Doctor>
             .HasColumnName("updated_at");
 
         builder.HasOne(d => d.Speciality)
-            .WithMany()
+            .WithMany(s => s.Doctors)
             .HasForeignKey(d => d.SpecialityId)
             .HasConstraintName("FK_DOCTORS_SPECIALTY")
             .OnDelete(DeleteBehavior.Restrict);

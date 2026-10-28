@@ -6,7 +6,8 @@ namespace Dsw2026Tpi.Domain.Enums;
 
 public enum AppointmentStatus
 {
-    CONFIRMED, 
-    CANCELLED, 
-    COMPLETED
+    BOOKED,
+    CANCELLED,
+    ATTENDED,
+    NO_SHOW
 }

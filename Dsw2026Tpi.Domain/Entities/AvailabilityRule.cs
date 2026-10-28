@@ -19,6 +19,7 @@ public class AvailabilityRule : EntityBase
 
     private readonly List<AvailabilitySlot> _availabilitySlots = new List<AvailabilitySlot>();
     public IReadOnlyCollection<AvailabilitySlot> AvailabilitySlots => _availabilitySlots.AsReadOnly();
+    public bool Deleted { get; private set; } = false;
 
     #region Constructor for EF
 #pragma warning disable CS8618

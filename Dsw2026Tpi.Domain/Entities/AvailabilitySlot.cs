@@ -1,4 +1,5 @@
-﻿using Dsw2026Tpi.Domain.Enums;
+﻿using Dsw2026Tpi.CrossCutting.Exceptions;
+using Dsw2026Tpi.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -15,6 +16,7 @@ public class AvailabilitySlot : EntityBase
     public TimeSpan EndTime { get; init; }
     public SlotStatus Status { get; private set; }
     public Appointment? Appointment { get; private set; }
+    public bool Deleted { get; private set; } = false;
 
 #pragma warning disable CS8618
     private AvailabilitySlot() { }
@@ -32,14 +34,14 @@ public class AvailabilitySlot : EntityBase
     public void Block()
     {
         if (Status != SlotStatus.AVAILABLE)
-            throw new InvalidOperationException("Solo se pueden bloquear turnos disponibles.");
+            throw new BusinessRuleException("Solo se pueden bloquear turnos disponibles.", "SLOT_CANNOT_BE_BLOCKED");
         Status = SlotStatus.BLOCKED;
     }
 
     public void Book()
     {
         if (Status != SlotStatus.AVAILABLE)
-            throw new InvalidOperationException("El turno no está disponible para reserva.");
+            throw new BusinessRuleException("El turno no está disponible para reserva.", "SLOT_CANNOT_BE_BOOKED");
         Status = SlotStatus.BOOKED;
     }
 

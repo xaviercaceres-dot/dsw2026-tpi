@@ -26,12 +26,12 @@ public class Appointment : EntityBase
         AvailabilitySlotId = availabilitySlotId;
         PatientId = patientId;
         Reason = reason;
-        Status = AppointmentStatus.CONFIRMED;
+        Status = AppointmentStatus.BOOKED;
     }
 
     public void Cancel()
     {
-        if (Status == AppointmentStatus.CANCELLED || Status == AppointmentStatus.COMPLETED)
+        if (Status == AppointmentStatus.CANCELLED || Status == AppointmentStatus.ATTENDED)
             throw new BusinessRuleException("No se puede cancelar una cita que ya fue atendida o cancelada.","APPOINTMENT_CANNOT_BE_CANCELLED");
 
         Status = AppointmentStatus.CANCELLED;
@@ -40,10 +40,10 @@ public class Appointment : EntityBase
 
     public void Attend()
     {
-        if (Status != AppointmentStatus.CONFIRMED)
-            throw new BusinessRuleException("Solo se pueden atender citas previamente confirmadas.", "APPOINTMENT_CANNOT_BE_ATTENDED");
+        if (Status != AppointmentStatus.BOOKED)
+            throw new BusinessRuleException("Solo se pueden atender citas previamente reservadas.", "APPOINTMENT_CANNOT_BE_ATTENDED");
 
-        Status = AppointmentStatus.COMPLETED;
+        Status = AppointmentStatus.ATTENDED;
         AttendedAt = DateTime.UtcNow;
     }
 

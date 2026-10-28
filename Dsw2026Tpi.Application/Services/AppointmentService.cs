@@ -29,124 +29,128 @@ public class AppointmentService : IAppointmentService
 
     public async Task<AppointmentModel.Response> Create(AppointmentModel.CreateRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length < 5)
-            throw new ValidationException().WithDetail("reason", "El motivo es obligatorio (mínimo 5 caracteres).");
+        //if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Length < 5)
+        //    throw new ValidationException().WithDetail("reason", "El motivo es obligatorio (mínimo 5 caracteres).");
 
-        var dniStr = request.Patient.Dni.ToString();
-        if (dniStr.Length < 7 || dniStr.Length > 10)
-            throw new ValidationException().WithDetail("dni", "El DNI es obligatorio y debe tener entre 7 y 10 dígitos.");
+        //var dniStr = request.Patient.Dni.ToString();
+        //if (dniStr.Length < 7 || dniStr.Length > 10)
+        //    throw new ValidationException().WithDetail("dni", "El DNI es obligatorio y debe tener entre 7 y 10 dígitos.");
 
-        _ = await _persistence.GetById<Doctor>(request.DoctorId) ?? throw new EntityNotFoundException("Doctor");
+        //_ = await _persistence.GetById<Doctor>(request.DoctorId) ?? throw new EntityNotFoundException("Doctor");
 
-        var patient = await _patientService.GetByDniAsync(request.Patient.Dni)
-            ?? throw new EntityNotFoundException("Patient");
+        //var patient = await _patientService.GetByDniAsync(request.Patient.Dni)
+        //    ?? throw new EntityNotFoundException("Patient");
 
-        var slot = await _persistence.GetById<AvailabilitySlot>(request.AvailabilityId, "AvailabilityRule", "Doctor.Speciality")
-            ?? throw new EntityNotFoundException("AvailabilitySlot");
+        //var slot = await _persistence.GetById<AvailabilitySlot>(request.AvailabilityId, "AvailabilityRule", "Doctor.Speciality")
+        //    ?? throw new EntityNotFoundException("AvailabilitySlot");
 
-        if (slot.AvailabilityRule?.DoctorId != request.DoctorId)
-            throw new ValidationException().WithDetail("availabilitySlotId", "El turno no pertenece al médico indicado.");
+        //if (slot.AvailabilityRule?.DoctorId != request.DoctorId)
+        //    throw new ValidationException().WithDetail("availabilitySlotId", "El turno no pertenece al médico indicado.");
 
-        if (slot.SlotDate.Date < DateTime.Today || (slot.SlotDate.Date == DateTime.Today && slot.StartTime < DateTime.Now.TimeOfDay))
-            throw new BusinessRuleException("No se pueden reservar turnos en fechas u horarios pasados.", "APPOINTMENT_PAST_DATE");
+        //if (slot.SlotDate.Date < DateTime.Today || (slot.SlotDate.Date == DateTime.Today && slot.StartTime < DateTime.Now.TimeOfDay))
+        //    throw new BusinessRuleException("No se pueden reservar turnos en fechas u horarios pasados.", "APPOINTMENT_PAST_DATE");
 
-        if (slot.Status != "AVAILABLE")
-        {
-            _logger.LogWarning("Intento de reserva sobre slot no disponible {SlotId} (doctor {DoctorId})", slot.Id, slot.DoctorId);
-            throw new ConflictException("APPOINTMENT_CONFLICT", "Slot already booked");
-        }
+        //if (slot.Status != "AVAILABLE")
+        //{
+        //    _logger.LogWarning("Intento de reserva sobre slot no disponible {SlotId} (doctor {DoctorId})", slot.Id, slot.DoctorId);
+        //    throw new ConflictException("APPOINTMENT_CONFLICT", "Slot already booked");
+        //}
 
-        slot.Book();
-        try
-        {
-            await _persistence.Update(slot);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            _logger.LogWarning("Conflicto de concurrencia al reservar el slot {SlotId}", slot.Id);
-            throw new ConflictException("APPOINTMENT_CONFLICT", "Slot already booked");
-        }
+        //slot.Book();
+        //try
+        //{
+        //    await _persistence.Update(slot);
+        //}
+        //catch (DbUpdateConcurrencyException)
+        //{
+        //    _logger.LogWarning("Conflicto de concurrencia al reservar el slot {SlotId}", slot.Id);
+        //    throw new ConflictException("APPOINTMENT_CONFLICT", "Slot already booked");
+        //}
 
-        var appointment = new Appointment(slot.Id, patient.Id, request.Reason);
-        await _persistence.Add(appointment);
-        _logger.LogInformation("Turno {AppointmentId} reservado para paciente {Dni} con doctor {DoctorId}",
-            appointment.Id, request.Patient.Dni, request.DoctorId);
+        //var appointment = new Appointment(slot.Id, patient.Id, request.Reason);
+        //await _persistence.Add(appointment);
+        //_logger.LogInformation("Turno {AppointmentId} reservado para paciente {Dni} con doctor {DoctorId}",
+        //    appointment.Id, request.Patient.Dni, request.DoctorId);
 
-        return ToResponse(appointment, slot, slot.Doctor!, patient);
+        //return ToResponse(appointment, slot, slot.Doctor!, patient);
+        return null;
     }
 
     public async Task<IEnumerable<AppointmentModel.Response>> GetByPatient(long dni)
     {
-        var patient = await _patientService.GetByDniAsync(dni) ?? throw new EntityNotFoundException("Patient");
+        //var patient = await _patientService.GetByDniAsync(dni) ?? throw new EntityNotFoundException("Patient");
 
-        var appointments = await _persistence.GetFiltered<Appointment>(
-            a => a.PatientId == patient.Id && a.Status == "BOOKED", SlotIncludes1, SlotIncludes2);
+        //var appointments = await _persistence.GetFiltered<Appointment>(
+        //    a => a.PatientId == patient.Id && a.Status == "BOOKED", SlotIncludes1, SlotIncludes2);
 
-        return (appointments ?? []).Select(a => ToResponse(a, a.AvailabilitySlot!, a.AvailabilitySlot!.AvailabilityRule!.Doctor!, patient));
+        //return (appointments ?? []).Select(a => ToResponse(a, a.AvailabilitySlot!, a.AvailabilitySlot!.AvailabilityRule!.Doctor!, patient));
+        return null;
     }
 
     public async Task Cancel(Guid id)
     {
-        var appointment = await _persistence.GetById<Appointment>(id, nameof(Appointment.AvailabilitySlot))
-            ?? throw new EntityNotFoundException("Appointment");
+        //var appointment = await _persistence.GetById<Appointment>(id, nameof(Appointment.AvailabilitySlot))
+        //    ?? throw new EntityNotFoundException("Appointment");
 
-        if (appointment.Status != "BOOKED")
-        {
-            _logger.LogWarning("Intento de cancelar turno {AppointmentId} en estado {Status}", appointment.Id, appointment.Status);
-            throw new BusinessRuleException("Solo se pueden cancelar turnos en estado reservado.", "APPOINTMENT_NOT_CANCELLABLE");
-        }
+        //if (appointment.Status != "BOOKED")
+        //{
+        //    _logger.LogWarning("Intento de cancelar turno {AppointmentId} en estado {Status}", appointment.Id, appointment.Status);
+        //    throw new BusinessRuleException("Solo se pueden cancelar turnos en estado reservado.", "APPOINTMENT_NOT_CANCELLABLE");
+        //}
 
-        appointment.Cancel();
-        await _persistence.Update(appointment);
+        //appointment.Cancel();
+        //await _persistence.Update(appointment);
 
-        var slot = appointment.AvailabilitySlot ?? await _persistence.GetById<AvailabilitySlot>(appointment.AvailabilitySlotId);
-        if (slot is not null)
-        {
-            slot.MakeAvailable();
-            await _persistence.Update(slot);
-        }
+        //var slot = appointment.AvailabilitySlot ?? await _persistence.GetById<AvailabilitySlot>(appointment.AvailabilitySlotId);
+        //if (slot is not null)
+        //{
+        //    slot.MakeAvailable();
+        //    await _persistence.Update(slot);
+        //}
 
-        _logger.LogInformation("Turno {AppointmentId} cancelado", appointment.Id);
+        //_logger.LogInformation("Turno {AppointmentId} cancelado", appointment.Id);
     }
 
     public async Task<Pagination<AppointmentModel.SearchItem>> GetByDate(DateOnly date, int pageSize, int pageIndex)
     {
-        var dateValue = date.ToDateTime(TimeOnly.MinValue).Date;
-        var result = await _persistence.Paginate<Appointment, DateTime>(pageSize, pageIndex,
-            a => a.AvailabilitySlot!.SlotDate.Date == dateValue,
-            a => a.AvailabilitySlot!.SlotDate, SlotIncludes1, SlotIncludes2);
+        //var dateValue = date.ToDateTime(TimeOnly.MinValue).Date;
+        //var result = await _persistence.Paginate<Appointment, DateTime>(pageSize, pageIndex,
+        //    a => a.AvailabilitySlot!.SlotDate.Date == dateValue,
+        //    a => a.AvailabilitySlot!.SlotDate, SlotIncludes1, SlotIncludes2);
 
-        return result.Map(ToSearchItem);
+        //return result.Map(ToSearchItem);
+        return null;
     }
 
     public async Task<Pagination<AppointmentModel.SearchItem>> Search(Guid? specialtyId, Guid? doctorId, long? dni,
         DateOnly? date, int pageSize, int pageIndex)
     {
-        var dateValue = date?.ToDateTime(TimeOnly.MinValue).Date;
+        //var dateValue = date?.ToDateTime(TimeOnly.MinValue).Date;
 
-        var result = await _persistence.Paginate<Appointment, DateTime>(pageSize, pageIndex,
-            a => (!specialtyId.HasValue || a.AvailabilitySlot!.AvailabilityRule!.Doctor!.SpecialityId == specialtyId) &&
-                 (!doctorId.HasValue || a.AvailabilitySlot!.AvailabilityRule!.DoctorId == doctorId) &&
-                 (!dni.HasValue || a.Patient!.Dni == dni) &&
-                 (!dateValue.HasValue || a.AvailabilitySlot!.SlotDate.Date == dateValue.Value),
-            a => a.AvailabilitySlot!.SlotDate,
-            SlotIncludes1, SlotIncludes2);
+        //var result = await _persistence.Paginate<Appointment, DateTime>(pageSize, pageIndex,
+        //    a => (!specialtyId.HasValue || a.AvailabilitySlot!.AvailabilityRule!.Doctor!.SpecialityId == specialtyId) &&
+        //         (!doctorId.HasValue || a.AvailabilitySlot!.AvailabilityRule!.DoctorId == doctorId) &&
+        //         (!dni.HasValue || a.Patient!.Dni == dni) &&
+        //         (!dateValue.HasValue || a.AvailabilitySlot!.SlotDate.Date == dateValue.Value),
+        //    a => a.AvailabilitySlot!.SlotDate,
+        //    SlotIncludes1, SlotIncludes2);
 
-        return result.Map(ToSearchItem);
+        //return result.Map(ToSearchItem);
+        return null;
     }
 
-    private static AppointmentModel.Response ToResponse(Appointment a, AvailabilitySlot slot, Doctor doctor, Patient patient) =>
-        new(a.Id, doctor.Id, doctor.Name!, doctor.Speciality?.Name ?? string.Empty,
-            patient.Dni, patient.Name!, DateOnly.FromDateTime(slot.SlotDate),
-            slot.StartTime.ToString(@"hh\:mm"), slot.EndTime.ToString(@"hh\:mm"), a.Reason, a.Status);
+    //private static AppointmentModel.Response ToResponse(Appointment a, AvailabilitySlot slot, Doctor doctor, Patient patient) =>
+    //    new(a.Id, doctor.Id, doctor.Name!, doctor.Speciality?.Name ?? string.Empty,
+    //        patient.Dni, patient.Name!, DateOnly.FromDateTime(slot.SlotDate),
+    //        slot.StartTime.ToString(@"hh\:mm"), slot.EndTime.ToString(@"hh\:mm"), a.Reason, a.Status);
 
-    private static AppointmentModel.SearchItem ToSearchItem(Appointment a) =>
-        new(a.Id, a.Status,
-            new AppointmentModel.PatientSummary(a.Patient!.Dni, a.Patient!.Name ?? string.Empty),
-            new AppointmentModel.DoctorSummary(
-                a.AvailabilitySlot!.AvailabilityRule!.Doctor!.Id,
-                a.AvailabilitySlot!.AvailabilityRule!.Doctor!.Name,
-                new AppointmentModel.SpecialtySummary(
-                    a.AvailabilitySlot!.AvailabilityRule!.Doctor!.Speciality?.Id ?? Guid.Empty,
-                    a.AvailabilitySlot!.AvailabilityRule!.Doctor!.Speciality?.Name ?? string.Empty)));
+    //private static AppointmentModel.SearchItem ToSearchItem(Appointment a) =>
+    //    new(a.Id, a.Status,
+    //        new AppointmentModel.PatientSummary(a.Patient!.Dni, a.Patient!.Name ?? string.Empty),
+    //        new AppointmentModel.DoctorSummary(
+    //            a.AvailabilitySlot!.AvailabilityRule!.Doctor!.Id,
+    //            a.AvailabilitySlot!.AvailabilityRule!.Doctor!.Name,
+    //            new AppointmentModel.SpecialtySummary(
+    //                a.AvailabilitySlot!.AvailabilityRule!.Doctor!.Speciality?.Id ?? Guid.Empty,
+    //                a.AvailabilitySlot!.AvailabilityRule!.Doctor!.Speciality?.Name ?? string.Empty)));
 }

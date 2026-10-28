@@ -19,17 +19,19 @@ public class PatientConfiguration : IEntityTypeConfiguration<Patient>
             .HasMaxLength(10)
             .IsRequired();
 
-        builder.Property(p => p.Name)
+        builder.Property(p => p.FullName)
             .HasMaxLength(100) 
             .IsRequired();
 
-        builder.Property(p => p.PhoneNumber)
-            .HasMaxLength(20) 
+        builder.Property(p => p.IsActive)
+            .HasColumnName("deleted")
+            .HasDefaultValue(false)
             .IsRequired();
 
         builder.Property(p => p.UserId) 
             .IsRequired(); 
 
         builder.HasIndex(p => p.Dni).IsUnique();
+        builder.HasIndex(p => p.UserId).IsUnique();
     }
 }

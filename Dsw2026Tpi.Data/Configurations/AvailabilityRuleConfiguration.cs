@@ -17,7 +17,7 @@ namespace Dsw2026Tpi.Data.Configurations
             builder.Property(r => r.DayOfWeek).HasMaxLength(20).IsRequired();
 
             builder.HasOne(r => r.Doctor)
-                .WithMany()
+                .WithMany(d => d.AvailabilityRules)
                 .HasForeignKey(r => r.DoctorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
