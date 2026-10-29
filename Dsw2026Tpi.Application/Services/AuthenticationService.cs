@@ -123,7 +123,7 @@ public class AuthenticationService : IAuthenticationService
             }
 
             var name = ExtractNameFromEmail(request.Email);
-            paciente = new Patient(request.Dni, name, "00000000", user.Id);
+            paciente = new Patient(request.Dni, name, user.Id);
             await _patientService.AddAsync(paciente);
         }
         else

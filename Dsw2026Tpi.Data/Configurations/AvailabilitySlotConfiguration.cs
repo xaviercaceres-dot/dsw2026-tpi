@@ -5,27 +5,26 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Dsw2026Tpi.Data.Configurations
+namespace Dsw2026Tpi.Data.Configurations;
+
+public  class AvailabilitySlotConfiguration : IEntityTypeConfiguration<AvailabilitySlot>
 {
-    public  class AvailabilitySlotConfiguration : IEntityTypeConfiguration<AvailabilitySlot>
+    public void Configure(EntityTypeBuilder<AvailabilitySlot> builder)
     {
-        public void Configure(EntityTypeBuilder<AvailabilitySlot> builder)
-        {
-            builder.ToTable("AvailabilitySlots");
+        builder.ToTable("AvailabilitySlots");
 
-            builder.Property(s => s.Status).HasMaxLength(20).IsRequired();
+        builder.Property(s => s.Status).HasMaxLength(20).HasConversion<string>().IsRequired();
 
-            builder.HasOne(s => s.AvailabilityRule)
-                .WithMany()
-                .HasForeignKey(s => s.AvailabilityRuleId)
-                .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(s => s.AvailabilityRule)
+            .WithMany(r => r.AvailabilitySlots)
+            .HasForeignKey(s => s.AvailabilityRuleId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-            builder.HasIndex(s => new { s.DoctorId, s.SlotDate, s.StartTime });
-          
-            builder.Property<byte[]>("RowVersion").IsRowVersion();
+        builder.HasIndex(s => new { s.AvailabilityRuleId, s.SlotDate, s.StartTime });
+      
+        builder.Property<byte[]>("RowVersion").IsRowVersion();
 
-    
-        }
 
     }
+
 }
