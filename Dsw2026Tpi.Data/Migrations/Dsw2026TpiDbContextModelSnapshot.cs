@@ -17,7 +17,7 @@ namespace Dsw2026Tpi.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -59,7 +59,8 @@ namespace Dsw2026Tpi.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AvailabilitySlotId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Status] <> 'CANCELLED'");
 
                     b.HasIndex("PatientId");
 

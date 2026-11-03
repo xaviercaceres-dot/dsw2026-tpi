@@ -2,6 +2,7 @@
 using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.CrossCutting.Exceptions;
 using Dsw2026Tpi.Domain.Entities;
+using Dsw2026Tpi.Domain.Enums;
 using Dsw2026Tpi.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using System;
@@ -44,97 +45,94 @@ public class AvailabilityService : IAvailabilityService
 
     public async Task<IEnumerable<AvailabilityModel.SlotDto>> GetAvailableSlots(Guid doctorId, DateOnly date)
     {
-        //_ = await _persistence.GetById<Doctor>(doctorId) ?? throw new EntityNotFoundException("Doctor");
+        _ = await _persistence.GetById<Doctor>(doctorId) ?? throw new EntityNotFoundException("Doctor");
 
-        //var dateValue = date.ToDateTime(TimeOnly.MinValue).Date;
-        //var slots = await _persistence.GetFiltered<AvailabilitySlot>(
-        //    s => s.DoctorId == doctorId && s.SlotDate.Date == dateValue && s.Status == "AVAILABLE");
+        var dateValue = date.ToDateTime(TimeOnly.MinValue).Date;
+        var rules = await _persistence.GetFiltered<AvailabilityRule>(
+            r => r.DoctorId == doctorId && r.Month == dateValue.Month && r.Year == dateValue.Year,
+            nameof(AvailabilityRule.AvailabilitySlots));
 
-        //return (slots ?? [])
-        //    .OrderBy(s => s.StartTime)
-        //    .Select(s => new AvailabilityModel.SlotDto(s.Id, Format(s.StartTime), Format(s.EndTime), s.Status));
-        return null;
+        var slots = rules?
+            .SelectMany(r => r.AvailabilitySlots)
+            .Where(s => s.SlotDate.Date == dateValue && s.Status == SlotStatus.AVAILABLE)
+            .OrderBy(s => s.StartTime)
+            .Select(s => new AvailabilityModel.SlotDto(
+                s.Id,
+                Format(s.StartTime),
+                Format(s.EndTime),
+                s.Status.ToString()));
+
+        return slots ?? [];
     }
 
     private async Task<IEnumerable<AvailabilityModel.RuleDto>> SetAvailability(AvailabilityModel.Request request, bool overwrite)
     {
-        //_ = await _persistence.GetById<Doctor>(request.DoctorId) ?? throw new EntityNotFoundException("Doctor");
-        //var parsedDays = ParseAndValidate(request.Days);
-        //var today = DateTime.Today;
-        //var month = today.Month;
-        //var year = today.Year;
-        //var holidays = await _holidayProvider.GetHolidaysAsync();
+        _ = await _persistence.GetById<Doctor>(request.DoctorId) ?? throw new EntityNotFoundException("Doctor");
+        var parsedDays = ParseAndValidate(request.Days);
+        var today = DateTime.Today;
+        var month = today.Month;
+        var year = today.Year;
+        var holidays = await _holidayProvider.GetHolidaysAsync();
 
-        //var existingRules = (await _persistence.GetFiltered<AvailabilityRule>(
-        //    r => r.DoctorId == request.DoctorId && r.Month == month && r.Year == year)) ?? new List<AvailabilityRule>();
+        var existingRules = (await _persistence.GetFiltered<AvailabilityRule>(
+            r => r.DoctorId == request.DoctorId && r.Month == month && r.Year == year))?.ToList() ?? [];
 
-        //if (overwrite)
-        //{
-        //    // 1. Buscamos los slots libres
-        //    var nonBookedSlots = await _persistence.GetFiltered<AvailabilitySlot>(
-        //        s => s.DoctorId == request.DoctorId && s.SlotDate.Date >= today &&
-        //             s.SlotDate.Month == month && s.SlotDate.Year == year && s.Status == "AVAILABLE");
+        if (overwrite)
+        {
+            var protectedRuleIds = (await _persistence.GetFiltered<AvailabilitySlot>(
+                s => s.AvailabilityRule!.DoctorId == request.DoctorId &&
+                     s.SlotDate.Month == month &&
+                     s.SlotDate.Year == year &&
+                     (s.Status == SlotStatus.BOOKED || s.Appointment != null),
+                nameof(AvailabilitySlot.Appointment)))?
+                .Select(s => s.AvailabilityRuleId)
+                .ToHashSet() ?? [];
 
-        //    if (nonBookedSlots != null && nonBookedSlots.Any())
-        //    {
-        //        await _persistence.DeleteRange(nonBookedSlots);
-        //    }
+            var replaceableRules = existingRules
+                .Where(r => !protectedRuleIds.Contains(r.Id))
+                .ToList();
+            if (replaceableRules.Count > 0)
+                await _persistence.DeleteRange(replaceableRules);
 
-        //    // 2. Buscamos qué reglas tienen turnos ya ocupados (BOOKED)
-        //    var bookedRuleIds = (await _persistence.GetFiltered<AvailabilitySlot>(
-        //        s => s.DoctorId == request.DoctorId && s.SlotDate.Month == month && s.SlotDate.Year == year && s.Status == "BOOKED"))
-        //        ?.Select(s => s.AvailabilityRuleId).ToHashSet() ?? new HashSet<Guid>();
+            existingRules = existingRules.Where(r => protectedRuleIds.Contains(r.Id)).ToList();
+        }
 
-        //    // 3. Separamos las reglas viejas que NO tienen turnos reservados
-        //    var rulesToDelete = existingRules.Where(r => !bookedRuleIds.Contains(r.Id)).ToList();
+        var affectedRules = new List<AvailabilityRule>();
+        var slotsToInsert = new List<AvailabilitySlot>();
 
-        //    if (rulesToDelete.Any())
-        //    {
-        //        await _persistence.DeleteRange(rulesToDelete);
-        //    }
+        foreach (var (day, start, end) in parsedDays)
+        {
+            var sameDay = existingRules.Where(r => r.DayOfWeek == day).ToList();
+            if (!overwrite)
+            {
+                if (sameDay.Any(r => r.StartTime == start && r.EndTime == end))
+                    continue;
+                if (sameDay.Any(r => start < r.EndTime && r.StartTime < end))
+                    throw new ConflictException("AVAILABILITY_OVERLAP", $"Ya existe disponibilidad para {day} que se superpone.");
+            }
 
-        //    // 4. Actualizamos la lista en memoria dejando solo las reglas "intocables"
-        //    existingRules = existingRules.Where(r => bookedRuleIds.Contains(r.Id)).ToList();
-        //}
+            var rule = new AvailabilityRule(request.DoctorId, month, year, day, start, end);
+            await _persistence.Add(rule);
+            affectedRules.Add(rule);
 
-        //var lastDay = DateTime.DaysInMonth(year, month);
-        //var affectedRules = new List<AvailabilityRule>();
-        //var slotsToInsert = new List<AvailabilitySlot>();
+            for (var currentDate = today; currentDate.Year == year && currentDate.Month == month; currentDate = currentDate.AddDays(1))
+            {
+                if (DayMap[currentDate.DayOfWeek] != day || holidays.Contains(currentDate.Date))
+                    continue;
 
-        //foreach (var (day, start, end) in parsedDays)
-        //{
-        //    if (!overwrite)
-        //    {
-        //        var sameDay = existingRules.Where(r => r.DayOfWeek == day).ToList();
-        //        if (sameDay.Any(r => r.StartTime == start && r.EndTime == end)) continue;
-        //        if (sameDay.Any(r => start < r.EndTime && r.StartTime < end))
-        //            throw new ConflictException("AVAILABILITY_OVERLAP", $"Ya existe disponibilidad para {day} que se superpone.");
-        //    }
+                for (var slotStart = start; slotStart + SlotDuration <= end; slotStart += SlotDuration)
+                    slotsToInsert.Add(new AvailabilitySlot(rule.Id, currentDate.Date, slotStart, slotStart + SlotDuration));
+            }
+        }
 
-        //    var rule = new AvailabilityRule(request.DoctorId, month, year, day, start, end);
-        //    await _persistence.Add(rule);
-        //    affectedRules.Add(rule);
+        if (slotsToInsert.Count > 0)
+            await _persistence.AddRange(slotsToInsert);
 
-        //    for (var date = today; date.Year == year && date.Month == month; date = date.AddDays(1))
-        //    {
-        //        if (DayMap[date.DayOfWeek] != day) continue;
-        //        if (holidays.Contains(date.Date)) continue;
+        _logger.LogInformation("Disponibilidad {Mode} para doctor {DoctorId}: {Count} regla(s)",
+            overwrite ? "sobrescrita" : "creada", request.DoctorId, affectedRules.Count);
 
-        //        for (var slotStart = start; slotStart + SlotDuration <= end; slotStart += SlotDuration)
-        //            slotsToInsert.Add(new AvailabilitySlot(rule.Id, request.DoctorId, date.Date, slotStart, slotStart + SlotDuration));
-        //    }
-
-        //    if (slotsToInsert.Any())
-        //    {
-        //        await _persistence.AddRange(slotsToInsert);
-        //    }
-        //}
-
-        //_logger.LogInformation("Disponibilidad {Mode} para doctor {DoctorId}: {Count} regla(s)",
-        //    overwrite ? "sobrescrita" : "creada", request.DoctorId, affectedRules.Count);
-
-        //return affectedRules.Select(r => new AvailabilityModel.RuleDto(r.Id, r.DayOfWeek!, Format(r.StartTime), Format(r.EndTime)));
-        return null;
+        return affectedRules.Select(r => new AvailabilityModel.RuleDto(
+            r.Id, r.DayOfWeek!, Format(r.StartTime), Format(r.EndTime)));
     }
 
     private static List<(string Day, TimeSpan Start, TimeSpan End)> ParseAndValidate(List<AvailabilityModel.DayScheduleDto>? days)

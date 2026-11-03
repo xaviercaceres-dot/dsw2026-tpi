@@ -30,7 +30,9 @@ public class AppoimentConfiguration  : IEntityTypeConfiguration<Appointment>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(a => new { a.AvailabilitySlotId, a.Status });
-        builder.HasIndex(a => a.AvailabilitySlotId).IsUnique();
+        builder.HasIndex(a => a.AvailabilitySlotId)
+            .IsUnique()
+            .HasFilter("[Status] <> 'CANCELLED'");
     }
 
 }
