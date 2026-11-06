@@ -22,6 +22,11 @@ namespace Dsw2026Tpi.Data.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasIndex(r => new { r.DoctorId, r.Year, r.Month, r.DayOfWeek });
+
+            // Modelo de datos: UNIQUE(doctor_id, year, month, day_of_week, start_time, end_time) entre las reglas vigentes.
+            builder.HasIndex(r => new { r.DoctorId, r.Year, r.Month, r.DayOfWeek, r.StartTime, r.EndTime })
+                .IsUnique()
+                .HasFilter("[Deleted] = 0");
         }
     }
 }

@@ -42,7 +42,8 @@ public class AuthenticationServiceTests
             mockPatientService.Object
         );
 
-        var request = new Dsw2026Tpi.Application.Dtos.LoginAdminModel.Request("admin@test.com", "123");
+        // Contraseña con formato válido (mínimo 8 caracteres) para que la validación no corte antes de buscar el usuario.
+        var request = new Dsw2026Tpi.Application.Dtos.LoginAdminModel.Request("admin@test.com", "Password123");
 
         await Assert.ThrowsAsync<AuthenticationException>(() =>
             authService.LoginAdmin(request));
@@ -54,7 +55,7 @@ public class AuthenticationServiceTests
         var mockPersistence = new Mock<IPersistence>();
         var pacienteIdGuid = Guid.NewGuid();
 
-        var pacienteEnBase = new Patient(12345678, "Carlos", "3811234567", "auth-user-123");
+        var pacienteEnBase = new Patient(12345678, "Carlos", "auth-user-123");
         typeof(Patient).GetProperty("Id")?.SetValue(pacienteEnBase, pacienteIdGuid);
 
         mockPersistence.Setup(p => p.GetById<Patient>(pacienteIdGuid))

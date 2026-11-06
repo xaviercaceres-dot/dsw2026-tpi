@@ -2,158 +2,224 @@
 using Dsw2026Tpi.Application.Interfaces;
 using Dsw2026Tpi.CrossCutting.Exceptions;
 using Dsw2026Tpi.Domain.Entities;
+using Dsw2026Tpi.Domain.Enums;
 using Dsw2026Tpi.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
 
 namespace Dsw2026Tpi.Application.Services;
 
+/// <summary>
+/// Controlador del caso de uso CU02 - Gestionar Disponibilidad y de la consulta de turnos libres (CU01, paso 4).
+/// Valida el contrato de entrada, obtiene los objetos del dominio, les delega las reglas y persiste.
+/// </summary>
 public class AvailabilityService : IAvailabilityService
 {
-    private static readonly string[] ValidDays =
-        ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"];
+    private static readonly string[] TimeFormats = ["HH:mm", "H:mm"];
 
-    private static readonly Dictionary<DayOfWeek, string> DayMap = new()
-    {
-        [DayOfWeek.Monday] = "LUNES",
-        [DayOfWeek.Tuesday] = "MARTES",
-        [DayOfWeek.Wednesday] = "MIÉRCOLES",
-        [DayOfWeek.Thursday] = "JUEVES",
-        [DayOfWeek.Friday] = "VIERNES",
-        [DayOfWeek.Saturday] = "SÁBADO",
-        [DayOfWeek.Sunday] = "DOMINGO",
-    };
-
-    private static readonly TimeSpan SlotDuration = TimeSpan.FromMinutes(30);
+    private static readonly string[] RuleWithSlotsIncludes =
+    [
+        nameof(AvailabilityRule.AvailabilitySlots),
+        $"{nameof(AvailabilityRule.AvailabilitySlots)}.{nameof(AvailabilitySlot.Appointments)}"
+    ];
 
     private readonly IPersistence _persistence;
-    private readonly ILogger<AvailabilityService> _logger;
     private readonly IHolidayProvider _holidayProvider;
+    private readonly TimeProvider _timeProvider;
+    private readonly ILogger<AvailabilityService> _logger;
 
-    public AvailabilityService(IPersistence persistence, ILogger<AvailabilityService> logger, IHolidayProvider holidayProvider)
+    public AvailabilityService(IPersistence persistence, IHolidayProvider holidayProvider,
+        TimeProvider timeProvider, ILogger<AvailabilityService> logger)
     {
         _persistence = persistence;
-        _logger = logger;
         _holidayProvider = holidayProvider;
+        _timeProvider = timeProvider;
+        _logger = logger;
     }
 
-    public async Task<IEnumerable<AvailabilityModel.RuleDto>> Create(AvailabilityModel.Request request) => await SetAvailability(request, overwrite: false);
-    public async Task<IEnumerable<AvailabilityModel.RuleDto>> Update(AvailabilityModel.Request request) => await SetAvailability(request, overwrite: true);
+    /// <summary>
+    /// POST: agrega franjas al mes en curso. Una franja idéntica a una vigente se ignora;
+    /// una que se superpone con una vigente es un conflicto.
+    /// </summary>
+    public async Task<IEnumerable<AvailabilityModel.RuleDto>> Create(AvailabilityModel.Request request)
+    {
+        var days = ParseAndValidate(request);
+        await EnsureActiveDoctor(request.DoctorId);
+        var now = Now();
+
+        var currentRules = await GetCurrentRules(request.DoctorId, now);
+        var newDays = days
+            .Where(d => !currentRules.Any(r => r.HasSameSchedule(d.Day, d.Start, d.End)))
+            .ToList();
+
+        var overlapped = newDays.FirstOrDefault(d => currentRules.Any(r => r.Overlaps(d.Day, d.Start, d.End)));
+        if (overlapped != default)
+            throw new ConflictException("AVAILABILITY_OVERLAP", $"Ya existe disponibilidad para {overlapped.Day} que se superpone.");
+
+        var rules = await CreateRulesForRestOfMonth(request.DoctorId, newDays, now);
+
+        _logger.LogInformation("Disponibilidad creada para doctor {DoctorId}: {Count} regla(s)", request.DoctorId, rules.Count);
+        return rules.Select(ToRuleDto);
+    }
+
+    /// <summary>
+    /// PUT: reemplaza la disponibilidad del mes en curso sobrescribiendo los turnos futuros NO reservados.
+    /// Las franjas idénticas a las vigentes se conservan; las demás se dan de baja liberando sus turnos libres.
+    /// Los turnos reservados se respetan y los nuevos turnos no se superponen con ellos.
+    /// Todos los cambios se persisten en un único guardado (una transacción).
+    /// </summary>
+    public async Task<IEnumerable<AvailabilityModel.RuleDto>> Update(AvailabilityModel.Request request)
+    {
+        var days = ParseAndValidate(request);
+        await EnsureActiveDoctor(request.DoctorId);
+        var now = Now();
+
+        var currentRules = await GetCurrentRules(request.DoctorId, now);
+        var keptRules = currentRules
+            .Where(r => days.Any(d => r.HasSameSchedule(d.Day, d.Start, d.End)))
+            .ToList();
+        var (retiredRules, releasedSlotIds) = await RetireRules(currentRules.Except(keptRules), now);
+
+        var newDays = days.Where(d => !keptRules.Any(r => r.HasSameSchedule(d.Day, d.Start, d.End)));
+        var newRules = await CreateRulesForRestOfMonth(request.DoctorId, newDays, now, releasedSlotIds);
+
+        // Sin reglas nuevas todavía no hubo guardado: un único guardado confirma todas las bajas, porque las reglas
+        // se cargaron con seguimiento de cambios (incluye cada regla dada de baja y sus turnos liberados o bloqueados).
+        if (newRules.Count == 0 && retiredRules.Count > 0)
+            await _persistence.Update(retiredRules[0]);
+
+        _logger.LogInformation("Disponibilidad sobrescrita para doctor {DoctorId}: {Kept} regla(s) conservadas, {New} nuevas, {Retired} dadas de baja y {Released} turno(s) libre(s) eliminados",
+            request.DoctorId, keptRules.Count, newRules.Count, retiredRules.Count, releasedSlotIds.Count);
+
+        var schedule = keptRules.Concat(newRules).ToList();
+        return days.Select(d => ToRuleDto(schedule.First(r => r.HasSameSchedule(d.Day, d.Start, d.End))));
+    }
 
     public async Task<IEnumerable<AvailabilityModel.SlotDto>> GetAvailableSlots(Guid doctorId, DateOnly date)
     {
-        //_ = await _persistence.GetById<Doctor>(doctorId) ?? throw new EntityNotFoundException("Doctor");
+        var ex = new ValidationException();
+        if (doctorId == Guid.Empty)
+            ex.WithDetail("doctorId", "El médico es obligatorio.");
+        if (date == default)
+            ex.WithDetail("date", "La fecha es obligatoria (formato YYYY-MM-DD).");
+        if (ex.Error.Details.Count > 0) throw ex;
 
-        //var dateValue = date.ToDateTime(TimeOnly.MinValue).Date;
-        //var slots = await _persistence.GetFiltered<AvailabilitySlot>(
-        //    s => s.DoctorId == doctorId && s.SlotDate.Date == dateValue && s.Status == "AVAILABLE");
+        await EnsureActiveDoctor(doctorId);
+        var now = Now();
+        var day = date.ToDateTime(TimeOnly.MinValue);
 
-        //return (slots ?? [])
-        //    .OrderBy(s => s.StartTime)
-        //    .Select(s => new AvailabilityModel.SlotDto(s.Id, Format(s.StartTime), Format(s.EndTime), s.Status));
-        return null;
+        if (day < now.Date) return [];
+
+        var slots = await _persistence.GetFiltered<AvailabilitySlot>(s =>
+            s.AvailabilityRule!.DoctorId == doctorId &&
+            s.SlotDate == day &&
+            s.Status == SlotStatus.AVAILABLE) ?? [];
+
+        return slots
+            .Where(s => !s.HasStarted(now))
+            .OrderBy(s => s.StartTime)
+            .Select(s => new AvailabilityModel.SlotDto(s.Id, Format(s.StartTime), Format(s.EndTime), s.Status.ToString()))
+            .ToList();
     }
 
-    private async Task<IEnumerable<AvailabilityModel.RuleDto>> SetAvailability(AvailabilityModel.Request request, bool overwrite)
+    /// <summary>
+    /// Da de baja las reglas indicadas y libera sus turnos futuros libres, sin guardar todavía: las reglas se cargan
+    /// con GetById (con seguimiento de cambios) y los turnos liberados se quitan de su regla, por lo que se eliminan
+    /// en el próximo guardado junto con el resto de los cambios (conservando el control de concurrencia por RowVersion).
+    /// </summary>
+    private async Task<(List<AvailabilityRule> Retired, HashSet<Guid> ReleasedSlotIds)> RetireRules(
+        IEnumerable<AvailabilityRule> rules, DateTime now)
     {
-        //_ = await _persistence.GetById<Doctor>(request.DoctorId) ?? throw new EntityNotFoundException("Doctor");
-        //var parsedDays = ParseAndValidate(request.Days);
-        //var today = DateTime.Today;
-        //var month = today.Month;
-        //var year = today.Year;
-        //var holidays = await _holidayProvider.GetHolidaysAsync();
+        var retired = new List<AvailabilityRule>();
+        var releasedSlotIds = new HashSet<Guid>();
 
-        //var existingRules = (await _persistence.GetFiltered<AvailabilityRule>(
-        //    r => r.DoctorId == request.DoctorId && r.Month == month && r.Year == year)) ?? new List<AvailabilityRule>();
+        foreach (var current in rules)
+        {
+            var rule = await _persistence.GetById<AvailabilityRule>(current.Id, RuleWithSlotsIncludes);
+            if (rule is null) continue;
 
-        //if (overwrite)
-        //{
-        //    // 1. Buscamos los slots libres
-        //    var nonBookedSlots = await _persistence.GetFiltered<AvailabilitySlot>(
-        //        s => s.DoctorId == request.DoctorId && s.SlotDate.Date >= today &&
-        //             s.SlotDate.Month == month && s.SlotDate.Year == year && s.Status == "AVAILABLE");
+            foreach (var slot in rule.ReleaseUnbookedSlotsFrom(now))
+                releasedSlotIds.Add(slot.Id);
+            rule.Retire();
+            retired.Add(rule);
+        }
 
-        //    if (nonBookedSlots != null && nonBookedSlots.Any())
-        //    {
-        //        await _persistence.DeleteRange(nonBookedSlots);
-        //    }
-
-        //    // 2. Buscamos qué reglas tienen turnos ya ocupados (BOOKED)
-        //    var bookedRuleIds = (await _persistence.GetFiltered<AvailabilitySlot>(
-        //        s => s.DoctorId == request.DoctorId && s.SlotDate.Month == month && s.SlotDate.Year == year && s.Status == "BOOKED"))
-        //        ?.Select(s => s.AvailabilityRuleId).ToHashSet() ?? new HashSet<Guid>();
-
-        //    // 3. Separamos las reglas viejas que NO tienen turnos reservados
-        //    var rulesToDelete = existingRules.Where(r => !bookedRuleIds.Contains(r.Id)).ToList();
-
-        //    if (rulesToDelete.Any())
-        //    {
-        //        await _persistence.DeleteRange(rulesToDelete);
-        //    }
-
-        //    // 4. Actualizamos la lista en memoria dejando solo las reglas "intocables"
-        //    existingRules = existingRules.Where(r => bookedRuleIds.Contains(r.Id)).ToList();
-        //}
-
-        //var lastDay = DateTime.DaysInMonth(year, month);
-        //var affectedRules = new List<AvailabilityRule>();
-        //var slotsToInsert = new List<AvailabilitySlot>();
-
-        //foreach (var (day, start, end) in parsedDays)
-        //{
-        //    if (!overwrite)
-        //    {
-        //        var sameDay = existingRules.Where(r => r.DayOfWeek == day).ToList();
-        //        if (sameDay.Any(r => r.StartTime == start && r.EndTime == end)) continue;
-        //        if (sameDay.Any(r => start < r.EndTime && r.StartTime < end))
-        //            throw new ConflictException("AVAILABILITY_OVERLAP", $"Ya existe disponibilidad para {day} que se superpone.");
-        //    }
-
-        //    var rule = new AvailabilityRule(request.DoctorId, month, year, day, start, end);
-        //    await _persistence.Add(rule);
-        //    affectedRules.Add(rule);
-
-        //    for (var date = today; date.Year == year && date.Month == month; date = date.AddDays(1))
-        //    {
-        //        if (DayMap[date.DayOfWeek] != day) continue;
-        //        if (holidays.Contains(date.Date)) continue;
-
-        //        for (var slotStart = start; slotStart + SlotDuration <= end; slotStart += SlotDuration)
-        //            slotsToInsert.Add(new AvailabilitySlot(rule.Id, request.DoctorId, date.Date, slotStart, slotStart + SlotDuration));
-        //    }
-
-        //    if (slotsToInsert.Any())
-        //    {
-        //        await _persistence.AddRange(slotsToInsert);
-        //    }
-        //}
-
-        //_logger.LogInformation("Disponibilidad {Mode} para doctor {DoctorId}: {Count} regla(s)",
-        //    overwrite ? "sobrescrita" : "creada", request.DoctorId, affectedRules.Count);
-
-        //return affectedRules.Select(r => new AvailabilityModel.RuleDto(r.Id, r.DayOfWeek!, Format(r.StartTime), Format(r.EndTime)));
-        return null;
+        return (retired, releasedSlotIds);
     }
 
-    private static List<(string Day, TimeSpan Start, TimeSpan End)> ParseAndValidate(List<AvailabilityModel.DayScheduleDto>? days)
+    /// <summary>
+    /// Crea las reglas del mes en curso; cada regla genera sus turnos y se persiste junto con ellos.
+    /// Los turnos que se están liberando (<paramref name="releasedSlotIds"/>) no cuentan como ocupados.
+    /// </summary>
+    private async Task<List<AvailabilityRule>> CreateRulesForRestOfMonth(Guid doctorId,
+        IEnumerable<(string Day, TimeSpan Start, TimeSpan End)> days, DateTime now, IReadOnlySet<Guid>? releasedSlotIds = null)
     {
-        if (days is null || days.Count == 0)
+        var rules = days
+            .Select(d => new AvailabilityRule(doctorId, now.Month, now.Year, d.Day, d.Start, d.End))
+            .ToList();
+
+        if (rules.Count == 0) return rules;
+
+        var holidays = await _holidayProvider.GetHolidaysAsync();
+        var occupiedSlots = (await GetUpcomingSlots(doctorId, now))
+            .Where(s => releasedSlotIds is null || !releasedSlotIds.Contains(s.Id))
+            .ToList();
+        var slotCount = rules.Sum(r => r.ScheduleSlots(now, holidays, occupiedSlots).Count);
+
+        await _persistence.AddRange(rules); // único guardado: altas y, en un PUT, también las bajas pendientes
+
+        _logger.LogInformation("Doctor {DoctorId}: {Slots} turno(s) generados para {Month}/{Year}",
+            doctorId, slotCount, now.Month, now.Year);
+        return rules;
+    }
+
+    private async Task<List<AvailabilityRule>> GetCurrentRules(Guid doctorId, DateTime now) =>
+        (await _persistence.GetFiltered<AvailabilityRule>(r =>
+            r.DoctorId == doctorId && r.Month == now.Month && r.Year == now.Year && !r.Deleted) ?? []).ToList();
+
+    private async Task<List<AvailabilitySlot>> GetUpcomingSlots(Guid doctorId, DateTime now)
+    {
+        var today = now.Date;
+        var lastDayOfMonth = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month));
+
+        return (await _persistence.GetFiltered<AvailabilitySlot>(s =>
+            s.AvailabilityRule!.DoctorId == doctorId &&
+            s.SlotDate >= today && s.SlotDate <= lastDayOfMonth) ?? []).ToList();
+    }
+
+    private async Task EnsureActiveDoctor(Guid doctorId)
+    {
+        var doctor = await _persistence.GetById<Doctor>(doctorId);
+        if (doctor is null || !doctor.IsActive)
+            throw new EntityNotFoundException(nameof(Doctor));
+    }
+
+    private DateTime Now() => _timeProvider.GetLocalNow().DateTime;
+
+    private static List<(string Day, TimeSpan Start, TimeSpan End)> ParseAndValidate(AvailabilityModel.Request? request)
+    {
+        if (request is null)
+            throw new ValidationException("El cuerpo de la solicitud es obligatorio.", "AVAILABILITY_REQUEST_REQUIRED");
+
+        if (request.DoctorId == Guid.Empty)
+            throw new ValidationException().WithDetail("doctorId", "El médico es obligatorio.");
+
+        if (request.Days is null || request.Days.Count == 0)
             throw new ValidationException("Debe indicar al menos un día de disponibilidad.", "AVAILABILITY_DAYS_REQUIRED");
 
         var parsed = new List<(string Day, TimeSpan Start, TimeSpan End)>();
 
-        foreach (var d in days)
+        foreach (var d in request.Days)
         {
-            var day = d.Day?.Trim().ToUpperInvariant() ?? string.Empty;
+            var day = d?.Day?.Trim().ToUpperInvariant() ?? string.Empty;
 
-            if (!ValidDays.Contains(day))
-                throw new ValidationException($"El día '{d.Day}' no es válido.", "INVALID_DAY")
-                    .WithDetail("day", d.Day ?? string.Empty);
+            if (!AvailabilityRule.IsValidDay(day))
+                throw new ValidationException($"El día '{d?.Day}' no es válido.", "INVALID_DAY")
+                    .WithDetail("day", d?.Day ?? string.Empty);
 
-            if (!TimeSpan.TryParse(d.StartTime, out var start) || !TimeSpan.TryParse(d.EndTime, out var end))
-                throw new ValidationException("El formato de horario debe ser HH:mm.", "INVALID_TIME_FORMAT");
+            if (!TryParseTime(d!.StartTime, out var start) || !TryParseTime(d.EndTime, out var end))
+                throw new ValidationException("El formato de horario debe ser HH:mm.", "INVALID_TIME_FORMAT")
+                    .WithDetail("day", day);
 
             if (start >= end)
                 throw new BusinessRuleException("El horario de inicio debe ser anterior al horario de fin.", "INVALID_TIME_RANGE")
@@ -174,6 +240,19 @@ public class AvailabilityService : IAvailabilityService
 
         return parsed;
     }
+
+    private static bool TryParseTime(string? value, out TimeSpan time)
+    {
+        time = default;
+        if (!TimeOnly.TryParseExact(value?.Trim(), TimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+            return false;
+
+        time = parsed.ToTimeSpan();
+        return true;
+    }
+
+    private static AvailabilityModel.RuleDto ToRuleDto(AvailabilityRule r) =>
+        new(r.Id, r.DayOfWeek!, Format(r.StartTime), Format(r.EndTime));
 
     private static string Format(TimeSpan time) => time.ToString(@"hh\:mm");
 }

@@ -29,7 +29,15 @@ public class Program
             builder.Services.AddApplicationPersistence(builder.Configuration);
             builder.Services.AddAppCors(builder.Configuration);
             builder.Services.AddAppDependencies();
-            builder.Services.AddControllers();
+            builder.Services.AddControllers(options =>
+                    // Los datos obligatorios los validan los servicios, con los mensajes y códigos de error de la API.
+                    options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true)
+                .ConfigureApiBehaviorOptions(options =>
+                {
+                    // Todas las respuestas de error siguen el formato de la API (errorCode, message, details).
+                    options.SuppressMapClientErrors = true;
+                    options.InvalidModelStateResponseFactory = ExceptionHandlingMiddleware.InvalidModelStateResponse;
+                });
             builder.Services.AddHealthChecks();
             builder.Services.AddAppRateLimiting(builder.Configuration);
 
@@ -49,13 +57,14 @@ public class Program
                 app.UseSwaggerUI();
             }
 
+            app.UseStatusCodePages(ExceptionHandlingMiddleware.WriteStatusCodeResponseAsync);
             app.UseMiddleware<ExceptionHandlingMiddleware>();
             app.UseCors();
             app.UseAuthentication();
             app.UseAuthorization();
             app.UseRateLimiter();
             app.MapControllers();
-            app.MapHealthChecks("/health-check");
+            app.MapHealthChecks("/health-check").RequireAuthorization();
 
             Log.Information("Aplicación iniciada correctamente");
 

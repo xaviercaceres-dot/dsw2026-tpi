@@ -29,4 +29,9 @@ public class PatientService : IPatientService
     {
         return await _persistence.GetById<Patient>(id);
     }
+
+    public async Task<Patient?> GetByUserIdAsync(string userId)
+    {
+        return await _persistence.First<Patient>(p => p.UserId == userId);
+    }
 }

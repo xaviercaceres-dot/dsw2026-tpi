@@ -8,7 +8,6 @@ using Dsw2026Tpi.Data.Identity;
 using Dsw2026Tpi.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Dsw2026Tpi.Application.Services;
 
@@ -63,7 +62,8 @@ public class AuthenticationService : IAuthenticationService
         }
 
         var role = Roles.Administrator;
-        var token = _jwtService.GenerateToken(user.UserName!, role);
+        var token = _jwtService.GenerateToken(user, role);
+        _logger.LogInformation("Inicio de sesión de administrador {UserId}", user.Id);
 
         return new LoginAdminModel.Response(
             token,
@@ -118,13 +118,21 @@ public class AuthenticationService : IAuthenticationService
                 if (!rolesUser.Contains(Roles.Patient))
                 {
                     _logger.LogWarning("Intento de login de paciente con email existente pero sin rol PACIENTE: {Email}", request.Email);
-                    throw new ConflictException(ErrorCodes.REGISTER_USER_INVALID, nameof(ErrorCodes.REGISTER_USER_INVALID));
+                    throw new ConflictException(nameof(ErrorCodes.REGISTER_USER_INVALID), ErrorCodes.REGISTER_USER_INVALID);
+                }
+
+                // El email ya pertenece a un paciente registrado con otro DNI: las credenciales no coinciden.
+                if (await _patientService.GetByUserIdAsync(user.Id) is not null)
+                {
+                    _logger.LogWarning("Login de paciente rechazado: el DNI no corresponde al email {Email}", request.Email);
+                    throw new AuthenticationException();
                 }
             }
 
             var name = ExtractNameFromEmail(request.Email);
             paciente = new Patient(request.Dni, name, user.Id);
             await _patientService.AddAsync(paciente);
+            _logger.LogInformation("Paciente {PatientId} registrado automáticamente en su primer inicio de sesión", paciente.Id);
         }
         else
         {
@@ -133,7 +141,7 @@ public class AuthenticationService : IAuthenticationService
             user = await _userManager.FindByIdAsync(paciente.UserId) ?? throw new AuthenticationException();
             if (user == null || !user.Email!.Equals(request.Email, StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogError("Paciente encontrado con DNI {Dni}, pero no existe un usuario con email {Email}", request.Dni, request.Email);
+                _logger.LogWarning("Login de paciente rechazado: el email {Email} no corresponde al DNI informado", request.Email);
                 throw new AuthenticationException()
                     .WithDetail("Credentials", "Las credenciales proporcionadas no son válidas.");
             }
@@ -142,12 +150,13 @@ public class AuthenticationService : IAuthenticationService
             if (!roles.Contains(Roles.Patient))
             {
                 _logger.LogWarning("Intento de login de paciente con email existente pero sin rol PACIENTE: {Email}", request.Email);
-                throw new ConflictException(ErrorCodes.REGISTER_USER_INVALID, nameof(ErrorCodes.REGISTER_USER_INVALID));
+                throw new ConflictException(nameof(ErrorCodes.REGISTER_USER_INVALID), ErrorCodes.REGISTER_USER_INVALID);
             }
         }
 
-        var role = (await _userManager.GetRolesAsync(user)).FirstOrDefault() ?? Roles.Patient;
-        var token = _jwtService.GenerateToken(user.UserName!, role);
+        var role = Roles.Patient;
+        var token = _jwtService.GenerateToken(user, role);
+        _logger.LogInformation("Inicio de sesión de paciente {PatientId}", paciente.Id);
 
         return new LoginPatientModel.Response(
             token,
@@ -157,12 +166,16 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<RegisterModel.Response> Register(RegisterModel.Request request)
     {
-        if (!request.Email.IsEmailValid()) throw new ValidationException(ErrorCodes.REGISTER_USER_INVALID,
-            nameof(ErrorCodes.REGISTER_USER_INVALID));
+        var ex = new ValidationException();
+        if (!request.Email.IsEmailValid())
+            ex.WithDetail("email", "El email es obligatorio y debe tener un formato válido.");
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
+            ex.WithDetail("password", "La contraseña es obligatoria y debe tener un mínimo de 8 caracteres.");
+        if (ex.Error.Details.Count > 0) throw ex;
 
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
         if (existingUser != null)
-            throw new ConflictException(ErrorCodes.REGISTER_USER_CONFLICT, "El correo electrónico ya se encuentra registrado.");
+            throw new ConflictException(nameof(ErrorCodes.REGISTER_USER_CONFLICT), "El correo electrónico ya se encuentra registrado.");
 
         var user = new ApplicationUser
         {
@@ -174,15 +187,15 @@ public class AuthenticationService : IAuthenticationService
 
         var result = await _userManager.CreateAsync(user, request.Password);
 
-        if (!result.Succeeded) throw new ValidationException(ErrorCodes.REGISTER_USER_INVALID,
-            "Los datos proporcionados no cumplen con las políticas de seguridad.")
+        if (!result.Succeeded) throw new ValidationException(
+            "Los datos proporcionados no cumplen con las políticas de seguridad.", nameof(ErrorCodes.REGISTER_USER_INVALID))
                 .WithDetail(result.Errors.Select(e => (e.Code, e.Description)));
 
         var roleResult = await _userManager.AddToRoleAsync(user, Roles.Administrator);
         if (!roleResult.Succeeded)
         {
             _logger.LogError("Error crítico al asignar el rol {Role} al usuario {Email}. Errores: {Errors}", Roles.Administrator, request.Email, roleResult.Errors);
-            throw new ConflictException(ErrorCodes.REGISTER_USER_CONFLICT, "Ocurrió un problema al configurar los permisos del administrador.");
+            throw new ConflictException(nameof(ErrorCodes.REGISTER_USER_CONFLICT), "Ocurrió un problema al configurar los permisos del administrador.");
         }
 
         _logger.LogInformation("Usuario registrado: {Email}", request.Email);
@@ -190,9 +203,22 @@ public class AuthenticationService : IAuthenticationService
         return new RegisterModel.Response(request.Email);
     }
 
+    /// <summary>
+    /// Cierra la sesión revocando todos los tokens emitidos al usuario: se renueva su sello de seguridad,
+    /// que se valida en cada solicitud autenticada.
+    /// </summary>
+    public async Task Logout(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId) ?? throw new AuthenticationException();
+        await _userManager.UpdateSecurityStampAsync(user);
+        _logger.LogInformation("Cierre de sesión del usuario {UserId}: tokens revocados", user.Id);
+    }
+
+    // Contraseña interna (el paciente se autentica con email y DNI). Siempre cumple la política de Identity:
+    // mayúscula ("T"), minúsculas, dígito ("1") y más de 8 caracteres.
     private string GenerateRandomPassword()
     {
-        return $"Temp_{Guid.NewGuid():N}".Substring(0, 12);
+        return $"Tmp1_{Guid.NewGuid():N}";
     }
 
     private string ExtractNameFromEmail(string email)
@@ -210,4 +236,3 @@ public class AuthenticationService : IAuthenticationService
         return "Paciente";
     }
 }
-

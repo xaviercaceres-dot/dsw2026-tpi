@@ -1,8 +1,5 @@
 ﻿using Dsw2026Tpi.CrossCutting.Exceptions;
 using Dsw2026Tpi.Domain.Enums;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Dsw2026Tpi.Domain.Entities;
 
@@ -29,13 +26,21 @@ public class Appointment : EntityBase
         Status = AppointmentStatus.BOOKED;
     }
 
+    /// <summary>
+    /// Cancela la cita y libera su turno (CU03). Solo se permite en estado BOOKED.
+    /// Requiere haber cargado la navegación <see cref="AvailabilitySlot"/>.
+    /// </summary>
     public void Cancel()
     {
-        if (Status == AppointmentStatus.CANCELLED || Status == AppointmentStatus.ATTENDED)
-            throw new BusinessRuleException("No se puede cancelar una cita que ya fue atendida o cancelada.","APPOINTMENT_CANNOT_BE_CANCELLED");
+        if (Status != AppointmentStatus.BOOKED)
+            throw new BusinessRuleException("Solo se pueden cancelar citas en estado reservado.", "APPOINTMENT_CANNOT_BE_CANCELLED");
+
+        if (AvailabilitySlot is null)
+            throw new InvalidOperationException("Debe cargarse el turno de la cita para poder cancelarla.");
 
         Status = AppointmentStatus.CANCELLED;
         CancelledAt = DateTime.UtcNow;
+        AvailabilitySlot.Release();
     }
 
     public void Attend()
@@ -46,5 +51,4 @@ public class Appointment : EntityBase
         Status = AppointmentStatus.ATTENDED;
         AttendedAt = DateTime.UtcNow;
     }
-
 }

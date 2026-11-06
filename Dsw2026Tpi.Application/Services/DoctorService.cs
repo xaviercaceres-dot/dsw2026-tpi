@@ -25,9 +25,10 @@ public class DoctorService : IDoctorService
 
         var speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
 
-        if(speciality == null)
+        if (speciality == null || !speciality.IsActive)
         {
-            throw new ValidationException(ErrorCodes.SPECIALITY_NOT_FOUND, "Speciality not found.");
+            throw new ValidationException(ErrorCodes.SPECIALITY_NOT_FOUND, nameof(ErrorCodes.SPECIALITY_NOT_FOUND))
+                .WithDetail("specialtyId", "La especialidad indicada no existe.");
         }
 
         var doctor = new Doctor(request.Name, request.LicenseNumber, speciality);
@@ -55,6 +56,9 @@ public class DoctorService : IDoctorService
         if (pageSize <= 0) pageSize = 10;
         if (pageIndex <= 0) pageIndex = 1;
 
+        if (!string.IsNullOrWhiteSpace(name) && (name.Length < 3 || name.Length > 100))
+            throw new ValidationException().WithDetail("name", "El filtro por nombre debe tener entre 3 y 100 caracteres.");
+
         Expression<Func<Doctor, bool>> filterPredicate = d =>
             d.IsActive && 
             (string.IsNullOrWhiteSpace(name) || d.Name.Contains(name));
@@ -70,11 +74,13 @@ public class DoctorService : IDoctorService
 
     public async Task<IEnumerable<DoctorModel.AvailabilityDto>> GetAvailabilitiesAsync(Guid doctorId)
     {
-        _ = await _persistence.GetById<Doctor>(doctorId) ?? throw new EntityNotFoundException("Doctor");
+        var doctor = await _persistence.GetById<Doctor>(doctorId);
+        if (doctor == null || !doctor.IsActive)
+            throw new EntityNotFoundException("Doctor");
 
         var today = DateTime.Today;
         var rules = await _persistence.GetFiltered<AvailabilityRule>(
-            r => r.DoctorId == doctorId && r.Month == today.Month && r.Year == today.Year);
+            r => r.DoctorId == doctorId && r.Month == today.Month && r.Year == today.Year && !r.Deleted);
 
         if (rules is null || !rules.Any()) return [];
 
@@ -104,7 +110,7 @@ public class DoctorService : IDoctorService
         if (request.SpecialityId != Guid.Empty)
         {
             speciality = await _persistence.GetById<Speciality>(request.SpecialityId);
-            if (speciality == null)
+            if (speciality == null || !speciality.IsActive)
             {
                 throw new EntityNotFoundException("Speciality");
             }
@@ -134,8 +140,8 @@ public class DoctorService : IDoctorService
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length < 3 || request.Name.Length > 100)
             ex.WithDetail("name", "El nombre es obligatorio y debe tener entre 3 y 100 caracteres.");
 
-        if (string.IsNullOrWhiteSpace(request.LicenseNumber))
-            ex.WithDetail("licenseNumber", "El número de matrícula es obligatorio.");
+        if (request.LicenseNumber?.Length > 50)
+            ex.WithDetail("licenseNumber", ErrorCodes.DOCTOR_LICENSE_NUMBER_LENGTH_INVALID);
 
         if (request.SpecialityId == Guid.Empty)
             ex.WithDetail("specialtyId", "La especialidad es obligatoria.");

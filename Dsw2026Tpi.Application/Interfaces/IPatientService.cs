@@ -9,5 +9,6 @@ public interface IPatientService
 {
     Task<Patient?> GetByDniAsync(long dni);
     Task<Patient?> GetByIdAsync(Guid id);
+    Task<Patient?> GetByUserIdAsync(string userId);
     Task AddAsync(Patient patient);
 }

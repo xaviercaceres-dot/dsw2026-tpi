@@ -19,19 +19,19 @@ public class AppointmentController : AppController
     [EnableRateLimiting("AppointmentBooking")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     public async Task<IActionResult> Create([FromBody] AppointmentModel.CreateRequest request)
-        => StatusCode(StatusCodes.Status201Created, await _service.Create(request));
+        => StatusCode(StatusCodes.Status201Created, await _service.Create(request, CurrentUserId));
 
     [HttpGet("patient")]
     [Authorize(Policy = Policies.PatientPolicy)]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetByPatient([FromQuery] long dni) => Ok(await _service.GetByPatient(dni));
+    public async Task<IActionResult> GetByPatient([FromQuery] long dni) => Ok(await _service.GetByPatient(dni, CurrentUserId));
 
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Policies.PatientPolicy)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Cancel(Guid id)
     {
-        await _service.Cancel(id);
+        await _service.Cancel(id, CurrentUserId);
         return Ok("ok");
     }
 

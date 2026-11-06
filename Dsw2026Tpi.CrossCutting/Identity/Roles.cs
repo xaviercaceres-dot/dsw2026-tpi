@@ -2,6 +2,7 @@
 
 public class Roles
 {
-    public const string Administrator = "Administrador";
-    public const string Patient = "Paciente";
+    // Nombres de rol definidos por el enunciado (ADMINISTRADOR / PACIENTE).
+    public const string Administrator = "ADMINISTRADOR";
+    public const string Patient = "PACIENTE";
 }

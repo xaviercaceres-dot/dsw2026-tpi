@@ -1,10 +1,12 @@
-﻿using Dsw2026Tpi.CrossCutting.Identity;
+﻿using Dsw2026Tpi.Application.Services;
+using Dsw2026Tpi.CrossCutting.Identity;
 using Dsw2026Tpi.CrossCutting.Models;
 using Dsw2026Tpi.CrossCutting.Resources;
 using Dsw2026Tpi.Data.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 
@@ -17,7 +19,9 @@ public static class SecurityConfigurationExtensions
     {
         //Obtener parámetros para creación del JWT desde appsettings.json
         var jwtConfig = configuration.GetSection("Jwt");
-        var keyText = jwtConfig["Key"] ?? throw new ArgumentNullException("JWT Key");
+        var keyText = jwtConfig["Key"];
+        if (string.IsNullOrWhiteSpace(keyText))
+            throw new InvalidOperationException("Falta configurar 'Jwt:Key'. En desarrollo: dotnet user-secrets set \"Jwt:Key\" \"<clave>\" (ver README).");
         var issuer = jwtConfig["Issuer"] ?? throw new ArgumentNullException("JWT Issuer");
         var audience = jwtConfig["Audience"] ?? throw new ArgumentNullException("JWT Audience");
         var key = Encoding.UTF8.GetBytes(keyText);
@@ -33,6 +37,18 @@ public static class SecurityConfigurationExtensions
             {
                 options.Events = new JwtBearerEvents
                 {
+                    // Tokens revocables: el token debe pertenecer a un usuario vigente y conservar su sello de seguridad,
+                    // que cambia al cerrar sesión (POST /api/auth/logout).
+                    OnTokenValidated = async context =>
+                    {
+                        var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+                        var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                        var stamp = context.Principal?.FindFirstValue(JwtService.SecurityStampClaimType);
+                        var user = string.IsNullOrEmpty(userId) ? null : await userManager.FindByIdAsync(userId);
+
+                        if (user is null || user.Deleted || string.IsNullOrEmpty(stamp) || user.SecurityStamp != stamp)
+                            context.Fail("El token fue revocado o no corresponde a un usuario vigente.");
+                    },
                     OnChallenge = async context =>
                     {
                         context.HandleResponse();

@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Dsw2026Tpi.Data.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -8,13 +9,19 @@ namespace Dsw2026Tpi.Application.Services;
 
 public class JwtService
 {
+    /// <summary>
+    /// Claim con el sello de seguridad del usuario. Al cerrar sesión el sello cambia y los tokens
+    /// emitidos previamente dejan de ser válidos (tokens revocables).
+    /// </summary>
+    public const string SecurityStampClaimType = "security_stamp";
+
     private readonly IConfiguration _config;
     public JwtService(IConfiguration config)
     {
         _config = config;
     }
 
-    public string GenerateToken(string username, string? role)
+    public string GenerateToken(ApplicationUser user, string role)
     {
         if (_config == null) throw new ArgumentNullException();
         var jwtConfig = _config.GetSection("Jwt");
@@ -27,9 +34,10 @@ public class JwtService
 
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, username),
-            new Claim(ClaimTypes.Name, username),
-            new Claim(ClaimTypes.Role, role ?? string.Empty)
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+            new Claim(ClaimTypes.Name, user.UserName!),
+            new Claim(ClaimTypes.Role, role),
+            new Claim(SecurityStampClaimType, user.SecurityStamp ?? string.Empty)
         };
 
         var token = new JwtSecurityToken(

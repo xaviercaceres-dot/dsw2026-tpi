@@ -16,7 +16,7 @@ public class Speciality : EntityBase
 
     #region Constructor for EF
 #pragma warning disable CS8618
-    public Speciality() { }
+    public Speciality() { IsActive = true; }
 #pragma warning restore CS8618
     #endregion
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Dsw2026Tpi.Api.Controllers;
 
@@ -9,5 +10,7 @@ namespace Dsw2026Tpi.Api.Controllers;
 [Route("api")]
 public abstract class AppController : ControllerBase
 {
+    /// <summary>Id del usuario autenticado (claim "sub" del JWT).</summary>
+    protected string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 }
 

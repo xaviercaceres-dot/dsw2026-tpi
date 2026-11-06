@@ -41,7 +41,8 @@ namespace Dsw2026Tpi.Application.Services
         {
             Validate(request);
 
-            var exists = await _persistence.First<Speciality>(s => s.IsActive && s.Name == request.Name);
+            // El nombre es único también respecto de las especialidades eliminadas (índice único de la tabla).
+            var exists = await _persistence.First<Speciality>(s => s.Name == request.Name);
             if (exists is not null) throw new ConflictException("SPECIALITY_CONFLICT", "Ya existe una especialidad con ese nombre.");
 
             var speciality = new Speciality(request.Name, request.Description);
@@ -52,7 +53,12 @@ namespace Dsw2026Tpi.Application.Services
         public async Task<SpecialityModel.Response> Update(Guid id, SpecialityModel.Request request)
         {
             Validate(request);
-            var speciality = await _persistence.GetById<Speciality>(id) ?? throw new EntityNotFoundException("Speciality");
+            var speciality = await _persistence.GetById<Speciality>(id);
+            if (speciality is null || !speciality.IsActive) throw new EntityNotFoundException("Speciality");
+
+            var exists = await _persistence.First<Speciality>(s => s.Name == request.Name && s.Id != id);
+            if (exists is not null) throw new ConflictException("SPECIALITY_CONFLICT", "Ya existe una especialidad con ese nombre.");
+
             speciality.Update(request.Name, request.Description);
             await _persistence.Update(speciality);
             return new SpecialityModel.Response(speciality.Id, speciality.Name!, speciality.Description!);
@@ -60,7 +66,8 @@ namespace Dsw2026Tpi.Application.Services
 
         public async Task Delete(Guid id)
         {
-            var speciality = await _persistence.GetById<Speciality>(id) ?? throw new EntityNotFoundException("Speciality");
+            var speciality = await _persistence.GetById<Speciality>(id);
+            if (speciality is null || !speciality.IsActive) throw new EntityNotFoundException("Speciality");
             speciality.Deactivate();
             await _persistence.Update(speciality);
         }

@@ -25,7 +25,8 @@ public class PatientConfiguration : IEntityTypeConfiguration<Patient>
 
         builder.Property(p => p.IsActive)
             .HasColumnName("deleted")
-            .HasDefaultValue(false)
+            .HasConversion(isActive => !isActive, deleted => !deleted)
+            .HasDefaultValue(true)
             .IsRequired();
 
         builder.Property(p => p.UserId) 

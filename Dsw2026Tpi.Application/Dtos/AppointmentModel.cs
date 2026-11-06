@@ -18,6 +18,6 @@ namespace Dsw2026Tpi.Application.Dtos
         public record PatientSummary(long Dni, string FullName);
         public record SpecialtySummary(Guid SpecialtyId, string Name);
         public record DoctorSummary(Guid DoctorId, string Name, SpecialtySummary Specialty);
-        public record SearchItem(Guid AppointmentsId, string AppointmentsStatus, PatientSummary Patient, DoctorSummary Doctor);
+        public record SearchItem(Guid AppointmentsId, string AppointmentsStatus, PatientSummary Patient, DoctorSummary Doctor, DateTime AvailableTime);
     }
 }

@@ -17,7 +17,7 @@ namespace Dsw2026Tpi.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -59,7 +59,8 @@ namespace Dsw2026Tpi.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AvailabilitySlotId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Status] = 'BOOKED'");
 
                     b.HasIndex("PatientId");
 
@@ -107,6 +108,10 @@ namespace Dsw2026Tpi.Data.Migrations
 
                     b.HasIndex("DoctorId", "Year", "Month", "DayOfWeek");
 
+                    b.HasIndex("DoctorId", "Year", "Month", "DayOfWeek", "StartTime", "EndTime")
+                        .IsUnique()
+                        .HasFilter("[Deleted] = 0");
+
                     b.ToTable("AvailabilityRules", (string)null);
                 });
 
@@ -149,7 +154,8 @@ namespace Dsw2026Tpi.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AvailabilityRuleId", "SlotDate", "StartTime");
+                    b.HasIndex("AvailabilityRuleId", "SlotDate", "StartTime")
+                        .IsUnique();
 
                     b.ToTable("AvailabilitySlots", (string)null);
                 });
@@ -278,8 +284,8 @@ namespace Dsw2026Tpi.Data.Migrations
             modelBuilder.Entity("Dsw2026Tpi.Domain.Entities.Appointment", b =>
                 {
                     b.HasOne("Dsw2026Tpi.Domain.Entities.AvailabilitySlot", "AvailabilitySlot")
-                        .WithOne("Appointment")
-                        .HasForeignKey("Dsw2026Tpi.Domain.Entities.Appointment", "AvailabilitySlotId")
+                        .WithMany("Appointments")
+                        .HasForeignKey("AvailabilitySlotId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -334,7 +340,7 @@ namespace Dsw2026Tpi.Data.Migrations
 
             modelBuilder.Entity("Dsw2026Tpi.Domain.Entities.AvailabilitySlot", b =>
                 {
-                    b.Navigation("Appointment");
+                    b.Navigation("Appointments");
                 });
 
             modelBuilder.Entity("Dsw2026Tpi.Domain.Entities.Doctor", b =>

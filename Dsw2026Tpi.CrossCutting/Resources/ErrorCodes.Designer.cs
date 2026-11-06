@@ -79,6 +79,15 @@ namespace Dsw2026Tpi.CrossCutting.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a El recurso fue modificado por otra operación. Intente nuevamente.
+        /// </summary>
+        public static string CONCURRENCY_CONFLICT {
+            get {
+                return ResourceManager.GetString("CONCURRENCY_CONFLICT", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a El número de licencia del médico no puede exceder los 50 caracteres.
         /// </summary>
         public static string DOCTOR_LICENSE_NUMBER_LENGTH_INVALID {
@@ -133,6 +142,15 @@ namespace Dsw2026Tpi.CrossCutting.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a El método HTTP no está permitido para el recurso solicitado.
+        /// </summary>
+        public static string METHOD_NOT_ALLOWED {
+            get {
+                return ResourceManager.GetString("METHOD_NOT_ALLOWED", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Se produjo un error al registrar el usuario.
         /// </summary>
         public static string REGISTER_USER_CONFLICT {
@@ -151,6 +169,15 @@ namespace Dsw2026Tpi.CrossCutting.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a El recurso solicitado no existe.
+        /// </summary>
+        public static string RESOURCE_NOT_FOUND {
+            get {
+                return ResourceManager.GetString("RESOURCE_NOT_FOUND", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a La especialidad especificada no existe.
         /// </summary>
         public static string SPECIALITY_NOT_FOUND {
@@ -165,6 +192,15 @@ namespace Dsw2026Tpi.CrossCutting.Resources {
         public static string UNHANDLED_ERROR {
             get {
                 return ResourceManager.GetString("UNHANDLED_ERROR", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El tipo de contenido de la solicitud no es soportado.
+        /// </summary>
+        public static string UNSUPPORTED_MEDIA_TYPE {
+            get {
+                return ResourceManager.GetString("UNSUPPORTED_MEDIA_TYPE", resourceCulture);
             }
         }
         

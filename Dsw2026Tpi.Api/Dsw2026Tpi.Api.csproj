@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dsw2026tpi-api-0f6c1d2e-8b4a-4c3e-9a71-5d2f3e4b6c80</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

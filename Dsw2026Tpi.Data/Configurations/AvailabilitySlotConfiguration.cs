@@ -20,7 +20,8 @@ public  class AvailabilitySlotConfiguration : IEntityTypeConfiguration<Availabil
             .HasForeignKey(s => s.AvailabilityRuleId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(s => new { s.AvailabilityRuleId, s.SlotDate, s.StartTime });
+        // Modelo de datos: un único turno por fecha y hora de inicio dentro de cada disponibilidad.
+        builder.HasIndex(s => new { s.AvailabilityRuleId, s.SlotDate, s.StartTime }).IsUnique();
       
         builder.Property<byte[]>("RowVersion").IsRowVersion();
 

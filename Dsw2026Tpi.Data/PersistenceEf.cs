@@ -1,4 +1,6 @@
-﻿using Dsw2026Tpi.Domain.Entities;
+﻿using Dsw2026Tpi.CrossCutting.Exceptions;
+using Dsw2026Tpi.CrossCutting.Resources;
+using Dsw2026Tpi.Domain.Entities;
 using Dsw2026Tpi.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -17,28 +19,28 @@ public class PersistenceEf : IPersistence
     public async Task<T> Add<T>(T entity) where T : EntityBase
     {
         await _context.AddAsync(entity);
-        await _context.SaveChangesAsync();
+        await SaveChangesAsync();
         return entity;
     }
 
     public async Task AddRange<T>(IEnumerable<T> entities) where T : EntityBase
     {
         await _context.AddRangeAsync(entities);
-        await _context.SaveChangesAsync(); 
+        await SaveChangesAsync(); 
     }
 
     public async Task<T> Delete<T>(T entity) where T : EntityBase
     {
         var a = entity.Id;
         _context.Remove(entity);
-        await _context.SaveChangesAsync();
+        await SaveChangesAsync();
         return entity;
     }
 
     public async Task DeleteRange<T>(IEnumerable<T> entities) where T : EntityBase
     {
         _context.RemoveRange(entities);
-        await _context.SaveChangesAsync();
+        await SaveChangesAsync();
     }
 
     public async Task<T?> First<T>(Expression<Func<T, bool>> predicate, params string[] include) where T : EntityBase
@@ -64,7 +66,7 @@ public class PersistenceEf : IPersistence
     public async Task<T> Update<T>(T entity) where T : EntityBase
     {
         _context.Update(entity);
-        await _context.SaveChangesAsync();
+        await SaveChangesAsync();
         return entity;
     }
 
@@ -119,6 +121,22 @@ public class PersistenceEf : IPersistence
             targetPageIndex--;
 
             if (targetPageIndex < 0) return new Pagination<T>(pageSize, requestedPageIndex, 0, []);
+        }
+    }
+
+    /// <summary>
+    /// Persiste los cambios. El conflicto de concurrencia optimista de EF Core se traduce a la
+    /// excepción de la capa transversal, para que las capas superiores no dependan del ORM.
+    /// </summary>
+    private async Task SaveChangesAsync()
+    {
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException(nameof(ErrorCodes.CONCURRENCY_CONFLICT), ErrorCodes.CONCURRENCY_CONFLICT);
         }
     }
 

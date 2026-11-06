@@ -17,9 +17,11 @@ public class AppoimentConfiguration  : IEntityTypeConfiguration<Appointment>
         builder.Property(a => a.Status).HasMaxLength(20).HasConversion<string>().IsRequired();
     
 
+        // Un turno conserva el historial de sus citas: al cancelar, vuelve a estar disponible (CU03)
+        // y puede reservarse nuevamente; la cita cancelada queda como registro.
         builder.HasOne(a => a.AvailabilitySlot)
-            .WithOne(s => s.Appointment)
-            .HasForeignKey<Appointment>(a => a.AvailabilitySlotId)
+            .WithMany(s => s.Appointments)
+            .HasForeignKey(a => a.AvailabilitySlotId)
             .OnDelete(DeleteBehavior.Restrict);
 
     
@@ -30,7 +32,8 @@ public class AppoimentConfiguration  : IEntityTypeConfiguration<Appointment>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(a => new { a.AvailabilitySlotId, a.Status });
-        builder.HasIndex(a => a.AvailabilitySlotId).IsUnique();
+        // RN03: no puede existir más de una cita reservada (BOOKED) para el mismo turno.
+        builder.HasIndex(a => a.AvailabilitySlotId).IsUnique().HasFilter("[Status] = 'BOOKED'");
     }
 
 }
