@@ -155,7 +155,7 @@ public class AuthenticationService : IAuthenticationService
         }
 
         var role = Roles.Patient;
-        var token = _jwtService.GenerateToken(user, role);
+        var token = _jwtService.GenerateToken(user, role, paciente.Dni);
         _logger.LogInformation("Inicio de sesión de paciente {PatientId}", paciente.Id);
 
         return new LoginPatientModel.Response(

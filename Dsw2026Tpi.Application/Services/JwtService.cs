@@ -21,7 +21,7 @@ public class JwtService
         _config = config;
     }
 
-    public string GenerateToken(ApplicationUser user, string role)
+    public string GenerateToken(ApplicationUser user, string role, long? dni = null)
     {
         if (_config == null) throw new ArgumentNullException();
         var jwtConfig = _config.GetSection("Jwt");
@@ -32,13 +32,18 @@ public class JwtService
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var expiresIn = int.Parse(jwtConfig["ExpiresInMinutes"] ?? "60");
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id),
             new Claim(ClaimTypes.Name, user.UserName!),
             new Claim(ClaimTypes.Role, role),
             new Claim(SecurityStampClaimType, user.SecurityStamp ?? string.Empty)
         };
+
+        if (dni.HasValue)
+        {
+            claims.Add(new Claim("dni", dni.Value.ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: issuer,
